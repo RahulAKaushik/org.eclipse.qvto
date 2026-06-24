@@ -1,5 +1,9 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -9,11 +13,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceVisitor;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EClassifier;
@@ -35,6 +44,7 @@ import org.eclipse.m2m.internal.qvt.oml.compiler.BlackboxUnitResolver;
 import org.eclipse.m2m.internal.qvt.oml.compiler.CompiledUnit;
 import org.eclipse.m2m.internal.qvt.oml.compiler.QVTOCompiler;
 import org.eclipse.m2m.internal.qvt.oml.compiler.QvtCompilerOptions;
+import org.eclipse.m2m.internal.qvt.oml.compiler.ResolverUtils;
 import org.eclipse.m2m.internal.qvt.oml.compiler.UnitProxy;
 import org.eclipse.m2m.internal.qvt.oml.compiler.UnitResolverFactory;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.URIUtils;
@@ -48,6 +58,10 @@ public class ProjectBlackboxDiscoveryService {
 
 	private static final String MARKER_ATTRIBUTE = QVTBBoxUIPlugin.PLUGIN_ID + ".blackboxMarker"; //$NON-NLS-1$
 	private static final String MARKER_PREFIX = "QVTo blackbox: "; //$NON-NLS-1$
+	private static final String JDT_QUERY = "jdt"; //$NON-NLS-1$
+	private static final String OSGI_QUERY = "osgi"; //$NON-NLS-1$
+	private static final String QVTO_FILE_EXTENSION = "qvto"; //$NON-NLS-1$
+	private static final Pattern IMPORT_PATTERN = Pattern.compile("^\\s*import\\s+([^;]+);"); //$NON-NLS-1$
 
 	public BlackboxDiscoveryResult discover(IProject project) {
 		BlackboxDiscoveryResult result = new BlackboxDiscoveryResult(project);
@@ -56,8 +70,8 @@ public class ProjectBlackboxDiscoveryService {
 		try {
 			URI projectURI = URIUtils.getResourceURI(project);
 			EPackage.Registry packageRegistry = createPackageRegistry(project);
-			collectImportedDescriptors(projectURI, packageRegistry, candidates, result);
-			collectAvailableDescriptors(projectURI, candidates);
+			collectImportedDescriptors(project, projectURI, packageRegistry, candidates, result);
+			collectAvailableDescriptors(project, projectURI, candidates);
 			loadCandidates(result, candidates.values(), packageRegistry);
 			sort(result);
 			updateMarkers(project, result);
@@ -72,11 +86,8 @@ public class ProjectBlackboxDiscoveryService {
 		return result;
 	}
 
-	private void collectImportedDescriptors(URI projectURI, EPackage.Registry packageRegistry, Map<String, Candidate> candidates, BlackboxDiscoveryResult result) {
+	private void collectImportedDescriptors(IProject project, URI projectURI, EPackage.Registry packageRegistry, Map<String, Candidate> candidates, BlackboxDiscoveryResult result) {
 		List<UnitProxy> units = UnitResolverFactory.Registry.INSTANCE.findAllUnits(projectURI);
-		if (units.isEmpty()) {
-			return;
-		}
 
 		QVTOCompiler compiler = new QVTOCompiler(packageRegistry);
 		QvtCompilerOptions options = new QvtCompilerOptions();
@@ -84,16 +95,19 @@ public class ProjectBlackboxDiscoveryService {
 
 		try {
 			Set<ImportedBlackbox> blackboxImports = new LinkedHashSet<ImportedBlackbox>();
-			for (UnitProxy unit : units) {
-				try {
-					CompiledUnit compiledUnit = compiler.compile(unit, options, (org.eclipse.core.runtime.IProgressMonitor) null);
-					collectBlackboxImports(compiledUnit, blackboxImports, new LinkedHashSet<URI>());
-				} catch (Exception e) {
-					QVTBBoxUIPlugin.log(e);
-					result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.WARNING, safeMessage(e)));
+			if (!units.isEmpty()) {
+				for (UnitProxy unit : units) {
+					try {
+						CompiledUnit compiledUnit = compiler.compile(unit, options, (org.eclipse.core.runtime.IProgressMonitor) null);
+						collectBlackboxImports(compiledUnit, blackboxImports, new LinkedHashSet<URI>());
+					} catch (Exception e) {
+						QVTBBoxUIPlugin.log(e);
+						result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.WARNING, safeMessage(e)));
+					}
 				}
 			}
 
+			collectSourceBlackboxImports(project, blackboxImports);
 			for (ImportedBlackbox blackboxImport : blackboxImports) {
 				URI blackboxURI = blackboxImport.uri;
 				String qualifiedName = getQualifiedName(blackboxURI);
@@ -113,6 +127,59 @@ public class ProjectBlackboxDiscoveryService {
 		}
 	}
 
+	private void collectSourceBlackboxImports(IProject project, final Set<ImportedBlackbox> blackboxImports) throws CoreException {
+		project.accept(new IResourceVisitor() {
+			public boolean visit(IResource resource) throws CoreException {
+				if (resource instanceof IFile == false) {
+					return true;
+				}
+
+				IFile file = (IFile) resource;
+				if (QVTO_FILE_EXTENSION.equals(file.getFileExtension()) == false) {
+					return false;
+				}
+
+				collectSourceBlackboxImports(file, blackboxImports);
+				return false;
+			}
+		});
+	}
+
+	private void collectSourceBlackboxImports(IFile file, Set<ImportedBlackbox> blackboxImports) throws CoreException {
+		URI contextURI = URIUtils.getResourceURI(file);
+		for (String qualifiedName : readImportNames(file)) {
+			ResolutionContext context = new ResolutionContextImpl(contextURI);
+			BlackboxUnitDescriptor descriptor = BlackboxRegistry.INSTANCE.getCompilationUnitDescriptor(qualifiedName, context);
+			if (descriptor != null) {
+				blackboxImports.add(new ImportedBlackbox(descriptor.getURI(), contextURI));
+			}
+		}
+	}
+
+	private List<String> readImportNames(IFile file) throws CoreException {
+		List<String> result = new ArrayList<String>();
+		InputStream contents = file.getContents(true);
+		try {
+			BufferedReader reader = new BufferedReader(new InputStreamReader(contents, file.getCharset()));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				Matcher matcher = IMPORT_PATTERN.matcher(line);
+				if (matcher.find()) {
+					result.add(matcher.group(1).trim().replace("::", ".")); //$NON-NLS-1$ //$NON-NLS-2$
+				}
+			}
+		} catch (IOException e) {
+			throw new CoreException(QVTBBoxUIPlugin.createStatus(IStatus.ERROR, safeMessage(e), e));
+		} finally {
+			try {
+				contents.close();
+			} catch (IOException e) {
+				QVTBBoxUIPlugin.log(e);
+			}
+		}
+		return result;
+	}
+
 	private void collectBlackboxImports(CompiledUnit unit, Set<ImportedBlackbox> blackboxImports, Set<URI> visited) {
 		if (unit == null || !visited.add(unit.getURI())) {
 			return;
@@ -126,11 +193,32 @@ public class ProjectBlackboxDiscoveryService {
 		}
 	}
 
-	private void collectAvailableDescriptors(URI projectURI, Map<String, Candidate> candidates) {
+	private void collectAvailableDescriptors(IProject project, URI projectURI, Map<String, Candidate> candidates) {
 		ResolutionContext context = new ResolutionContextImpl(projectURI);
 		for (BlackboxUnitDescriptor descriptor : BlackboxRegistry.INSTANCE.getCompilationUnitDescriptors(context)) {
-			addCandidate(candidates, descriptor, descriptor.getQualifiedName(), descriptor.getURI(), false);
+			if (isProjectDescriptor(project, descriptor)) {
+				addCandidate(candidates, descriptor, descriptor.getQualifiedName(), descriptor.getURI(), false);
+			}
 		}
+	}
+
+	private boolean isProjectDescriptor(IProject project, BlackboxUnitDescriptor descriptor) {
+		if (project == null || descriptor == null || descriptor.getURI() == null) {
+			return false;
+		}
+
+		URI descriptorURI = descriptor.getURI();
+		String projectName = project.getName();
+		return projectName.equals(ResolverUtils.getQueryValue(descriptorURI, JDT_QUERY))
+				|| projectName.equals(ResolverUtils.getQueryValue(descriptorURI, OSGI_QUERY))
+				|| isProjectPlatformURI(projectName, descriptor.reconvertURI());
+	}
+
+	private boolean isProjectPlatformURI(String projectName, URI uri) {
+		if (uri == null || uri.segmentCount() < 2) {
+			return false;
+		}
+		return (uri.isPlatformResource() || uri.isPlatformPlugin()) && projectName.equals(uri.segment(1));
 	}
 
 	private void addCandidate(Map<String, Candidate> candidates, BlackboxUnitDescriptor descriptor, String qualifiedName, URI uri, boolean used) {
@@ -161,24 +249,24 @@ public class ProjectBlackboxDiscoveryService {
 			try {
 				BlackboxUnit unit = candidate.descriptor.load(new LoadContext(packageRegistry));
 				unitInfo.setLoaded(true);
-					addDiagnostic(unitInfo, unit.getDiagnostic());
-					for (org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalModuleEnv moduleEnv : unit.getElements()) {
-						addModule(unitInfo, moduleEnv.getModuleContextType());
-					}
-				} catch (BlackboxException e) {
-					addDiagnostic(unitInfo, e.getDiagnostic());
-					if (e.getDiagnostic() == null) {
-						unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
-					}
-				} catch (RuntimeException e) {
-					QVTBBoxUIPlugin.log(e);
-					unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
-				} catch (LinkageError e) {
-					QVTBBoxUIPlugin.log(e);
+				addDiagnostic(unitInfo, unit.getDiagnostic());
+				for (org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalModuleEnv moduleEnv : unit.getElements()) {
+					addModule(unitInfo, moduleEnv.getModuleContextType());
+				}
+			} catch (BlackboxException e) {
+				addDiagnostic(unitInfo, e.getDiagnostic());
+				if (e.getDiagnostic() == null) {
 					unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
 				}
+			} catch (RuntimeException e) {
+				QVTBBoxUIPlugin.log(e);
+				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+			} catch (LinkageError e) {
+				QVTBBoxUIPlugin.log(e);
+				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
 			}
 		}
+	}
 
 	private EPackage.Registry createPackageRegistry(IProject project) {
 		ResourceSet resourceSet = new ResourceSetImpl();
