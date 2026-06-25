@@ -2,6 +2,7 @@ package org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator;
 
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxPluginImages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
@@ -48,7 +49,10 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 	@Override
 	public Image getImage(Object element) {
 		ISharedImages images = PlatformUI.getWorkbench().getSharedImages();
-		if (element instanceof BlackboxRootNode || element instanceof BlackboxModuleInfo) {
+		if (element instanceof BlackboxRootNode) {
+			return QVTBBoxPluginImages.getInstance().getImage(QVTBBoxPluginImages.QVTO_BLACKBOX);
+		}
+		if (element instanceof BlackboxModuleInfo) {
 			return images.getImage(ISharedImages.IMG_OBJ_FOLDER);
 		}
 		if (element instanceof BlackboxLoadingNode) {
@@ -56,7 +60,8 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 		}
 		if (element instanceof BlackboxUnitInfo) {
 			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
-			return unit.hasErrors() ? images.getImage(ISharedImages.IMG_OBJS_ERROR_TSK) : images.getImage(ISharedImages.IMG_OBJ_FILE);
+			String imageKey = unit.hasErrors() ? QVTBBoxPluginImages.QVTO_BLACKBOX_ERROR : QVTBBoxPluginImages.QVTO_BLACKBOX;
+			return QVTBBoxPluginImages.getInstance().getImage(imageKey);
 		}
 		if (element instanceof BlackboxDiagnosticInfo) {
 			BlackboxDiagnosticInfo diagnostic = (BlackboxDiagnosticInfo) element;
