@@ -1,9 +1,5 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -13,16 +9,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
-import org.eclipse.core.resources.IResourceVisitor;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IStatus;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EClassifier;
@@ -40,6 +31,7 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.LoadContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
+import org.eclipse.m2m.internal.qvt.oml.ast.parser.QvtOperationalParserUtil;
 import org.eclipse.m2m.internal.qvt.oml.compiler.BlackboxUnitResolver;
 import org.eclipse.m2m.internal.qvt.oml.compiler.CompiledUnit;
 import org.eclipse.m2m.internal.qvt.oml.compiler.QVTOCompiler;
@@ -47,6 +39,7 @@ import org.eclipse.m2m.internal.qvt.oml.compiler.QvtCompilerOptions;
 import org.eclipse.m2m.internal.qvt.oml.compiler.ResolverUtils;
 import org.eclipse.m2m.internal.qvt.oml.compiler.UnitProxy;
 import org.eclipse.m2m.internal.qvt.oml.compiler.UnitResolverFactory;
+import org.eclipse.m2m.internal.qvt.oml.cst.ImportCS;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.URIUtils;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.eclipse.m2m.internal.qvt.oml.expressions.ImperativeOperation;
@@ -60,10 +53,13 @@ public class ProjectBlackboxDiscoveryService {
 	private static final String MARKER_PREFIX = "QVTo blackbox: "; //$NON-NLS-1$
 	private static final String JDT_QUERY = "jdt"; //$NON-NLS-1$
 	private static final String OSGI_QUERY = "osgi"; //$NON-NLS-1$
-	private static final String QVTO_FILE_EXTENSION = "qvto"; //$NON-NLS-1$
-	private static final Pattern IMPORT_PATTERN = Pattern.compile("^\\s*import\\s+([^;]+);"); //$NON-NLS-1$
+	private static final String QVTO_NAMESPACE_SEPARATOR = "."; //$NON-NLS-1$
 
 	public BlackboxDiscoveryResult discover(IProject project) {
+		return discover(project, true);
+	}
+
+	public BlackboxDiscoveryResult discover(IProject project, boolean updateMarkers) {
 		BlackboxDiscoveryResult result = new BlackboxDiscoveryResult(project);
 		Map<String, Candidate> candidates = new LinkedHashMap<String, Candidate>();
 
@@ -74,13 +70,16 @@ public class ProjectBlackboxDiscoveryService {
 			collectAvailableDescriptors(project, projectURI, candidates);
 			loadCandidates(result, candidates.values(), packageRegistry);
 			sort(result);
-			updateMarkers(project, result);
 		} catch (RuntimeException e) {
 			QVTBBoxUIPlugin.log(e);
 			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
 		} catch (LinkageError e) {
 			QVTBBoxUIPlugin.log(e);
 			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
+		} finally {
+			if (updateMarkers) {
+				updateMarkers(project, result);
+			}
 		}
 
 		return result;
@@ -89,25 +88,26 @@ public class ProjectBlackboxDiscoveryService {
 	private void collectImportedDescriptors(IProject project, URI projectURI, EPackage.Registry packageRegistry, Map<String, Candidate> candidates, BlackboxDiscoveryResult result) {
 		List<UnitProxy> units = UnitResolverFactory.Registry.INSTANCE.findAllUnits(projectURI);
 
-		QVTOCompiler compiler = new QVTOCompiler(packageRegistry);
+		ImportParsingCompiler compiler = new ImportParsingCompiler(packageRegistry);
 		QvtCompilerOptions options = new QvtCompilerOptions();
 		options.setGenerateCompletionData(false);
 
 		try {
 			Set<ImportedBlackbox> blackboxImports = new LinkedHashSet<ImportedBlackbox>();
 			if (!units.isEmpty()) {
-				for (UnitProxy unit : units) {
-					try {
-						CompiledUnit compiledUnit = compiler.compile(unit, options, (org.eclipse.core.runtime.IProgressMonitor) null);
+				try {
+					CompiledUnit[] compiledUnits = compiler.compile(units.toArray(new UnitProxy[units.size()]), options,
+							(org.eclipse.core.runtime.IProgressMonitor) null);
+					for (CompiledUnit compiledUnit : compiledUnits) {
 						collectBlackboxImports(compiledUnit, blackboxImports, new LinkedHashSet<URI>());
-					} catch (Exception e) {
-						QVTBBoxUIPlugin.log(e);
-						result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.WARNING, safeMessage(e)));
 					}
+				} catch (Exception e) {
+					QVTBBoxUIPlugin.log(e);
+					result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.WARNING, safeMessage(e)));
 				}
 			}
 
-			collectSourceBlackboxImports(project, blackboxImports);
+			collectSourceBlackboxImports(units, compiler, options, blackboxImports, result);
 			for (ImportedBlackbox blackboxImport : blackboxImports) {
 				URI blackboxURI = blackboxImport.uri;
 				String qualifiedName = getQualifiedName(blackboxURI);
@@ -127,57 +127,23 @@ public class ProjectBlackboxDiscoveryService {
 		}
 	}
 
-	private void collectSourceBlackboxImports(IProject project, final Set<ImportedBlackbox> blackboxImports) throws CoreException {
-		project.accept(new IResourceVisitor() {
-			public boolean visit(IResource resource) throws CoreException {
-				if (resource instanceof IFile == false) {
-					return true;
-				}
-
-				IFile file = (IFile) resource;
-				if (QVTO_FILE_EXTENSION.equals(file.getFileExtension()) == false) {
-					return false;
-				}
-
-				collectSourceBlackboxImports(file, blackboxImports);
-				return false;
-			}
-		});
-	}
-
-	private void collectSourceBlackboxImports(IFile file, Set<ImportedBlackbox> blackboxImports) throws CoreException {
-		URI contextURI = URIUtils.getResourceURI(file);
-		for (String qualifiedName : readImportNames(file)) {
-			ResolutionContext context = new ResolutionContextImpl(contextURI);
-			BlackboxUnitDescriptor descriptor = BlackboxRegistry.INSTANCE.getCompilationUnitDescriptor(qualifiedName, context);
-			if (descriptor != null) {
-				blackboxImports.add(new ImportedBlackbox(descriptor.getURI(), contextURI));
-			}
-		}
-	}
-
-	private List<String> readImportNames(IFile file) throws CoreException {
-		List<String> result = new ArrayList<String>();
-		InputStream contents = file.getContents(true);
-		try {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(contents, file.getCharset()));
-			String line;
-			while ((line = reader.readLine()) != null) {
-				Matcher matcher = IMPORT_PATTERN.matcher(line);
-				if (matcher.find()) {
-					result.add(matcher.group(1).trim().replace("::", ".")); //$NON-NLS-1$ //$NON-NLS-2$
-				}
-			}
-		} catch (IOException e) {
-			throw new CoreException(QVTBBoxUIPlugin.createStatus(IStatus.ERROR, safeMessage(e), e));
-		} finally {
+	private void collectSourceBlackboxImports(List<UnitProxy> units, ImportParsingCompiler compiler, QvtCompilerOptions options,
+			Set<ImportedBlackbox> blackboxImports, BlackboxDiscoveryResult result) {
+		for (UnitProxy unit : units) {
+			URI contextURI = unit.getURI();
 			try {
-				contents.close();
-			} catch (IOException e) {
+				for (String qualifiedName : compiler.parseImportNames(unit, options)) {
+					ResolutionContext context = new ResolutionContextImpl(contextURI);
+					BlackboxUnitDescriptor descriptor = BlackboxRegistry.INSTANCE.getCompilationUnitDescriptor(qualifiedName, context);
+					if (descriptor != null) {
+						blackboxImports.add(new ImportedBlackbox(descriptor.getURI(), contextURI));
+					}
+				}
+			} catch (Exception e) {
 				QVTBBoxUIPlugin.log(e);
+				result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.WARNING, safeMessage(e)));
 			}
 		}
-		return result;
 	}
 
 	private void collectBlackboxImports(CompiledUnit unit, Set<ImportedBlackbox> blackboxImports, Set<URI> visited) {
@@ -405,6 +371,11 @@ public class ProjectBlackboxDiscoveryService {
 	private void updateMarkers(IProject project, BlackboxDiscoveryResult result) {
 		try {
 			deleteMarkers(project);
+			for (BlackboxDiagnosticInfo diagnostic : result.getDiagnostics()) {
+				if (diagnostic.isError()) {
+					createMarker(project, diagnostic);
+				}
+			}
 			for (BlackboxUnitInfo unit : result.getUnits()) {
 				for (BlackboxDiagnosticInfo diagnostic : unit.getDiagnostics()) {
 					if (diagnostic.isError()) {
@@ -431,6 +402,14 @@ public class ProjectBlackboxDiscoveryService {
 		marker.setAttribute(IMarker.MESSAGE, MARKER_PREFIX + unit.getQualifiedName() + " - " + diagnostic.getMessage()); //$NON-NLS-1$
 		marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_ERROR);
 		marker.setAttribute(IMarker.LOCATION, unit.getURI() != null ? unit.getURI().toString() : unit.getQualifiedName());
+	}
+
+	private void createMarker(IProject project, BlackboxDiagnosticInfo diagnostic) throws CoreException {
+		IMarker marker = project.createMarker(QVTOProjectPlugin.PROBLEM_MARKER);
+		marker.setAttribute(MARKER_ATTRIBUTE, true);
+		marker.setAttribute(IMarker.MESSAGE, MARKER_PREFIX + diagnostic.getMessage());
+		marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_ERROR);
+		marker.setAttribute(IMarker.LOCATION, project.getFullPath().toString());
 	}
 
 	private static class Candidate {
@@ -468,6 +447,29 @@ public class ProjectBlackboxDiscoveryService {
 			}
 			ImportedBlackbox other = (ImportedBlackbox) obj;
 			return uri.equals(other.uri) && contextURI.equals(other.contextURI);
+		}
+	}
+
+	private static class ImportParsingCompiler extends QVTOCompiler {
+
+		ImportParsingCompiler(EPackage.Registry packageRegistry) {
+			super(packageRegistry);
+		}
+
+		List<String> parseImportNames(UnitProxy unit, QvtCompilerOptions options) throws Exception {
+			List<String> result = new ArrayList<String>();
+			CSTParseResult parseResult = parse(unit, options);
+			if (parseResult.unitCS == null) {
+				return result;
+			}
+
+			for (ImportCS importCS : QvtOperationalParserUtil.getImports(parseResult.unitCS)) {
+				if (importCS.getPathNameCS() != null) {
+					result.add(QvtOperationalParserUtil.getStringRepresentation(importCS.getPathNameCS(),
+							QVTO_NAMESPACE_SEPARATOR));
+				}
+			}
+			return result;
 		}
 	}
 }
