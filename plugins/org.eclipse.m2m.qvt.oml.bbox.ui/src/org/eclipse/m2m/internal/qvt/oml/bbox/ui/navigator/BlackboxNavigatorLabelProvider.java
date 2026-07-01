@@ -2,11 +2,13 @@ package org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator;
 
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxPluginImages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.PlatformUI;
@@ -16,26 +18,27 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 	@Override
 	public String getText(Object element) {
 		if (element instanceof BlackboxRootNode) {
-			return "QVTo Blackboxes"; //$NON-NLS-1$
+			return Messages.BlackboxNavigator_root;
 		}
 		if (element instanceof BlackboxLoadingNode) {
-			return "Loading..."; //$NON-NLS-1$
+			return Messages.BlackboxNavigator_loading;
 		}
 		if (element instanceof BlackboxUnitInfo) {
 			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
-			String suffix = unit.isUsed() ? " (used)" : " (available)"; //$NON-NLS-1$ //$NON-NLS-2$
+			String suffix = unit.isUsed() ? Messages.BlackboxNavigator_usedSuffix : Messages.BlackboxNavigator_availableSuffix;
 			if (unit.hasErrors()) {
-				return unit.getQualifiedName() + suffix + " - failed"; //$NON-NLS-1$
+				return unit.getQualifiedName() + suffix + Messages.BlackboxNavigator_failedSuffix;
 			}
 			return unit.getQualifiedName() + suffix;
 		}
 		if (element instanceof BlackboxModuleInfo) {
 			BlackboxModuleInfo module = (BlackboxModuleInfo) element;
-			String text = module.getName() + " (" + module.getOperations().size() + ")"; //$NON-NLS-1$ //$NON-NLS-2$
 			if (!module.getPackageURIs().isEmpty()) {
-				text += " - " + join(module); //$NON-NLS-1$
+				return NLS.bind(Messages.BlackboxNavigator_moduleLabelWithPackages,
+						new Object[] { module.getName(), Integer.valueOf(module.getOperations().size()), join(module) });
 			}
-			return text;
+			return NLS.bind(Messages.BlackboxNavigator_moduleLabel,
+					module.getName(), Integer.valueOf(module.getOperations().size()));
 		}
 		if (element instanceof BlackboxOperationInfo) {
 			return ((BlackboxOperationInfo) element).getSignature();

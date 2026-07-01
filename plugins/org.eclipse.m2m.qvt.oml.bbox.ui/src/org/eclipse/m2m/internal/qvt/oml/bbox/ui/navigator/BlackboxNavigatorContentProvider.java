@@ -16,9 +16,11 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.StructuredViewer;
 import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResult;
@@ -29,9 +31,9 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscove
 import org.eclipse.m2m.internal.qvt.oml.emf.util.mmregistry.MetamodelRegistry;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.progress.WorkbenchJob;
-import org.eclipse.core.runtime.jobs.Job;
 
 public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 
@@ -179,7 +181,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 
 	private void scheduleDiscovery(final BlackboxRootNode root) {
 		final IProject project = root.getProject();
-		Job job = new Job("Discover QVTo blackboxes for " + project.getName()) { //$NON-NLS-1$
+		Job job = new Job(NLS.bind(Messages.BlackboxNavigator_discoveryJobName, project.getName())) {
 			@Override
 			protected IStatus run(IProgressMonitor monitor) {
 				try {
@@ -236,7 +238,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			return;
 		}
 
-		WorkbenchJob refreshJob = new WorkbenchJob("Refresh QVTo blackboxes") { //$NON-NLS-1$
+		WorkbenchJob refreshJob = new WorkbenchJob(Messages.BlackboxNavigator_refreshJobName) {
 			@Override
 			public IStatus runInUIThread(IProgressMonitor monitor) {
 				Control control = currentViewer.getControl();

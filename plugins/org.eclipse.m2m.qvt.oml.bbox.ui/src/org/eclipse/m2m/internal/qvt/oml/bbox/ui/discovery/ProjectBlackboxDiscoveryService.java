@@ -21,8 +21,9 @@ import org.eclipse.emf.ecore.EOperation;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EParameter;
 import org.eclipse.emf.ecore.resource.ResourceSet;
-import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.impl.EPackageRegistryImpl;
+import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxException;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry;
@@ -46,11 +47,11 @@ import org.eclipse.m2m.internal.qvt.oml.expressions.ImperativeOperation;
 import org.eclipse.m2m.internal.qvt.oml.expressions.ModelType;
 import org.eclipse.m2m.internal.qvt.oml.expressions.Module;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
+import org.eclipse.osgi.util.NLS;
 
 public class ProjectBlackboxDiscoveryService {
 
 	private static final String MARKER_ATTRIBUTE = QVTBBoxUIPlugin.PLUGIN_ID + ".blackboxMarker"; //$NON-NLS-1$
-	private static final String MARKER_PREFIX = "QVTo blackbox: "; //$NON-NLS-1$
 	private static final String JDT_QUERY = "jdt"; //$NON-NLS-1$
 	private static final String OSGI_QUERY = "osgi"; //$NON-NLS-1$
 	private static final String QVTO_NAMESPACE_SEPARATOR = "."; //$NON-NLS-1$
@@ -208,7 +209,7 @@ public class ProjectBlackboxDiscoveryService {
 
 			if (candidate.descriptor == null) {
 				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR,
-						"Blackbox descriptor could not be resolved: " + candidate.qualifiedName)); //$NON-NLS-1$
+						NLS.bind(Messages.BlackboxDiscovery_descriptorNotResolved, candidate.qualifiedName)));
 				continue;
 			}
 
@@ -399,7 +400,8 @@ public class ProjectBlackboxDiscoveryService {
 	private void createMarker(IProject project, BlackboxUnitInfo unit, BlackboxDiagnosticInfo diagnostic) throws CoreException {
 		IMarker marker = project.createMarker(QVTOProjectPlugin.PROBLEM_MARKER);
 		marker.setAttribute(MARKER_ATTRIBUTE, true);
-		marker.setAttribute(IMarker.MESSAGE, MARKER_PREFIX + unit.getQualifiedName() + " - " + diagnostic.getMessage()); //$NON-NLS-1$
+		marker.setAttribute(IMarker.MESSAGE, NLS.bind(Messages.BlackboxDiscovery_markerMessage,
+				unit.getQualifiedName(), diagnostic.getMessage()));
 		marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_ERROR);
 		marker.setAttribute(IMarker.LOCATION, unit.getURI() != null ? unit.getURI().toString() : unit.getQualifiedName());
 	}
@@ -407,7 +409,8 @@ public class ProjectBlackboxDiscoveryService {
 	private void createMarker(IProject project, BlackboxDiagnosticInfo diagnostic) throws CoreException {
 		IMarker marker = project.createMarker(QVTOProjectPlugin.PROBLEM_MARKER);
 		marker.setAttribute(MARKER_ATTRIBUTE, true);
-		marker.setAttribute(IMarker.MESSAGE, MARKER_PREFIX + diagnostic.getMessage());
+		marker.setAttribute(IMarker.MESSAGE, NLS.bind(Messages.BlackboxDiscovery_projectMarkerMessage,
+				diagnostic.getMessage()));
 		marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_ERROR);
 		marker.setAttribute(IMarker.LOCATION, project.getFullPath().toString());
 	}

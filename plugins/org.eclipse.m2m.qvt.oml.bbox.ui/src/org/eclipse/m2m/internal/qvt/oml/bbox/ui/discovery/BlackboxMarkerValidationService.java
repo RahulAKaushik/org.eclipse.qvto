@@ -9,8 +9,10 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
+import org.eclipse.osgi.util.NLS;
 
 public final class BlackboxMarkerValidationService {
 
@@ -30,7 +32,7 @@ public final class BlackboxMarkerValidationService {
 				previousJob.cancel();
 			}
 
-			Job job = new Job("Validate QVTo blackboxes for " + project.getName()) { //$NON-NLS-1$
+			Job job = new Job(NLS.bind(Messages.BlackboxMarkerValidation_jobName, project.getName())) {
 				@Override
 				protected IStatus run(IProgressMonitor monitor) {
 					try {
