@@ -70,7 +70,10 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 			if (diagnostic.getSeverity() == Diagnostic.WARNING) {
 				return images.getImage(ISharedImages.IMG_OBJS_WARN_TSK);
 			}
-			return images.getImage(ISharedImages.IMG_OBJS_ERROR_TSK);
+			if (diagnostic.isError()) {
+				return images.getImage(ISharedImages.IMG_OBJS_ERROR_TSK);
+			}
+			return images.getImage(ISharedImages.IMG_OBJS_INFO_TSK);
 		}
 		if (element instanceof BlackboxOperationInfo) {
 			return images.getImage(ISharedImages.IMG_OBJ_FILE);

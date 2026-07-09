@@ -59,7 +59,7 @@ public class BlackboxUnitInfo {
 
 	public boolean hasErrors() {
 		for (BlackboxDiagnosticInfo diagnostic : diagnostics) {
-			if (diagnostic.isError()) {
+			if (diagnostic.hasErrors()) {
 				return true;
 			}
 		}

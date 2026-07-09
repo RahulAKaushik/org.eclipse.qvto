@@ -91,6 +91,10 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			return ((BlackboxModuleInfo) parentElement).getOperations().toArray();
 		}
 
+		if (parentElement instanceof BlackboxDiagnosticInfo) {
+			return ((BlackboxDiagnosticInfo) parentElement).getChildren().toArray();
+		}
+
 		return new Object[0];
 	}
 
@@ -133,6 +137,9 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		}
 		if (element instanceof BlackboxModuleInfo) {
 			return !((BlackboxModuleInfo) element).getOperations().isEmpty();
+		}
+		if (element instanceof BlackboxDiagnosticInfo) {
+			return !((BlackboxDiagnosticInfo) element).getChildren().isEmpty();
 		}
 		return false;
 	}

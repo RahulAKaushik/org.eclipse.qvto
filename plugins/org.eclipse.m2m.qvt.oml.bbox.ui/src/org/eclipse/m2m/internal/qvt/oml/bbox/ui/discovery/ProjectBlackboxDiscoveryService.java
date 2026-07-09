@@ -264,18 +264,29 @@ public class ProjectBlackboxDiscoveryService {
 	}
 
 	private void addDiagnostic(BlackboxUnitInfo unitInfo, Diagnostic diagnostic) {
+		BlackboxDiagnosticInfo diagnosticInfo = createDiagnostic(unitInfo, diagnostic);
+		if (diagnosticInfo != null) {
+			unitInfo.addDiagnostic(diagnosticInfo);
+		}
+	}
+
+	private BlackboxDiagnosticInfo createDiagnostic(Object parent, Diagnostic diagnostic) {
 		if (diagnostic == null || diagnostic.getSeverity() == Diagnostic.OK) {
-			return;
+			return null;
 		}
 
-		if (diagnostic.getChildren().isEmpty()) {
-			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, diagnostic.getSeverity(), diagnostic.getMessage()));
-			return;
-		}
-
+		BlackboxDiagnosticInfo diagnosticInfo = new BlackboxDiagnosticInfo(parent, diagnostic.getSeverity(),
+				diagnostic.getMessage());
 		for (Diagnostic child : diagnostic.getChildren()) {
-			addDiagnostic(unitInfo, child);
+			BlackboxDiagnosticInfo childInfo = createDiagnostic(diagnosticInfo, child);
+			if (childInfo != null) {
+				diagnosticInfo.addChild(childInfo);
+			}
 		}
+		if (diagnosticInfo.getChildren().isEmpty() && diagnosticInfo.getMessage() == null) {
+			return null;
+		}
+		return diagnosticInfo;
 	}
 
 	private void sort(BlackboxDiscoveryResult result) {
@@ -290,15 +301,11 @@ public class ProjectBlackboxDiscoveryService {
 		try {
 			deleteMarkers(project);
 			for (BlackboxDiagnosticInfo diagnostic : result.getDiagnostics()) {
-				if (diagnostic.isError()) {
-					createMarker(project, diagnostic);
-				}
+				createMarkers(project, diagnostic);
 			}
 			for (BlackboxUnitInfo unit : result.getUnits()) {
 				for (BlackboxDiagnosticInfo diagnostic : unit.getDiagnostics()) {
-					if (diagnostic.isError()) {
-						createMarker(project, unit, diagnostic);
-					}
+					createMarkers(project, unit, diagnostic);
 				}
 			}
 		} catch (CoreException e) {
@@ -311,6 +318,32 @@ public class ProjectBlackboxDiscoveryService {
 			if (marker.getAttribute(MARKER_ATTRIBUTE, false)) {
 				marker.delete();
 			}
+		}
+	}
+
+	private void createMarkers(IProject project, BlackboxUnitInfo unit, BlackboxDiagnosticInfo diagnostic) throws CoreException {
+		boolean childMarkerCreated = false;
+		for (BlackboxDiagnosticInfo child : diagnostic.getChildren()) {
+			if (child.hasErrors()) {
+				createMarkers(project, unit, child);
+				childMarkerCreated = true;
+			}
+		}
+		if (!childMarkerCreated && diagnostic.isError()) {
+			createMarker(project, unit, diagnostic);
+		}
+	}
+
+	private void createMarkers(IProject project, BlackboxDiagnosticInfo diagnostic) throws CoreException {
+		boolean childMarkerCreated = false;
+		for (BlackboxDiagnosticInfo child : diagnostic.getChildren()) {
+			if (child.hasErrors()) {
+				createMarkers(project, child);
+				childMarkerCreated = true;
+			}
+		}
+		if (!childMarkerCreated && diagnostic.isError()) {
+			createMarker(project, diagnostic);
 		}
 	}
 
