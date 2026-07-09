@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.core.resources.IMarkerDelta;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeEvent;
@@ -54,7 +55,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 	public Object[] getChildren(Object parentElement) {
 		if (parentElement instanceof IProject) {
 			IProject project = (IProject) parentElement;
-			return isQVTProject(project) ? new Object[] { new BlackboxRootNode(project) } : new Object[0];
+			return isQVTProject(project) ? new Object[] { createRootNode(project) } : new Object[0];
 		}
 
 		if (parentElement instanceof BlackboxRootNode) {
@@ -63,6 +64,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			if (result == null) {
 				return new Object[] { new BlackboxLoadingNode(root) };
 			}
+			root.setHasErrors(result.hasErrors());
 			Object[] children = new Object[result.getUnits().size() + result.getDiagnostics().size()];
 			int index = 0;
 			for (Object unit : result.getUnits()) {
@@ -185,6 +187,20 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		return null;
 	}
 
+	private BlackboxRootNode createRootNode(IProject project) {
+		BlackboxRootNode root = new BlackboxRootNode(project);
+		BlackboxDiscoveryResult result = null;
+		synchronized (cache) {
+			result = cache.get(project);
+		}
+		if (result != null) {
+			root.setHasErrors(result.hasErrors());
+		} else {
+			root.setHasErrors(ProjectBlackboxDiscoveryService.hasBlackboxProblemMarkers(project));
+		}
+		return root;
+	}
+
 	private void scheduleDiscovery(final BlackboxRootNode root) {
 		final IProject project = root.getProject();
 		Job job = new Job(NLS.bind(Messages.BlackboxNavigator_discoveryJobName, project.getName())) {
@@ -195,6 +211,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 						return Status.CANCEL_STATUS;
 					}
 					BlackboxDiscoveryResult result = discoveryService.discover(project, false, monitor);
+					root.setHasErrors(result.hasErrors());
 					synchronized (cache) {
 						if (discoveryJobs.get(project) == this) {
 							if (!monitor.isCanceled()) {
@@ -268,12 +285,17 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		}
 
 		final Set<IProject> affectedProjects = new LinkedHashSet<IProject>();
+		final Set<IProject> markerChangedProjects = new LinkedHashSet<IProject>();
 		try {
 			delta.accept(new IResourceDeltaVisitor() {
 				public boolean visit(IResourceDelta resourceDelta) throws CoreException {
 					IResource resource = resourceDelta.getResource();
 					if (resource == null) {
 						return true;
+					}
+					IProject project = resource.getProject();
+					if (project != null && hasBlackboxMarkerDelta(resourceDelta)) {
+						markerChangedProjects.add(project);
 					}
 					if (resource.getType() == IResource.PROJECT) {
 						return true;
@@ -292,6 +314,20 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		for (IProject project : affectedProjects) {
 			invalidate(project);
 		}
+		for (IProject project : markerChangedProjects) {
+			if (!affectedProjects.contains(project)) {
+				refresh(createRootNode(project));
+			}
+		}
+	}
+
+	private boolean hasBlackboxMarkerDelta(IResourceDelta resourceDelta) {
+		for (IMarkerDelta markerDelta : resourceDelta.getMarkerDeltas()) {
+			if (ProjectBlackboxDiscoveryService.isBlackboxProblemMarker(markerDelta)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void invalidate(IProject project) {

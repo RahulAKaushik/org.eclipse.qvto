@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IMarkerDelta;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
@@ -53,6 +54,29 @@ import org.eclipse.osgi.util.NLS;
 public class ProjectBlackboxDiscoveryService {
 
 	private static final String MARKER_ATTRIBUTE = QVTBBoxUIPlugin.PLUGIN_ID + ".blackboxMarker"; //$NON-NLS-1$
+
+	public static boolean hasBlackboxProblemMarkers(IProject project) {
+		try {
+			if (project == null || !project.isAccessible()) {
+				return false;
+			}
+			for (IMarker marker : project.findMarkers(QVTOProjectPlugin.PROBLEM_MARKER, false, IResource.DEPTH_ZERO)) {
+				if (marker.getAttribute(MARKER_ATTRIBUTE, false)
+						&& marker.getAttribute(IMarker.SEVERITY, IMarker.SEVERITY_INFO) == IMarker.SEVERITY_ERROR) {
+					return true;
+				}
+			}
+		} catch (CoreException e) {
+			QVTBBoxUIPlugin.log(e);
+		}
+		return false;
+	}
+
+	public static boolean isBlackboxProblemMarker(IMarkerDelta markerDelta) {
+		return markerDelta != null
+				&& markerDelta.isSubtypeOf(QVTOProjectPlugin.PROBLEM_MARKER)
+				&& markerDelta.getAttribute(MARKER_ATTRIBUTE, false);
+	}
 
 	public BlackboxDiscoveryResult discover(IProject project) {
 		return discover(project, true);

@@ -5,6 +5,7 @@ import org.eclipse.core.resources.IProject;
 public class BlackboxRootNode {
 
 	private final IProject project;
+	private volatile boolean hasErrors;
 
 	public BlackboxRootNode(IProject project) {
 		this.project = project;
@@ -12,6 +13,14 @@ public class BlackboxRootNode {
 
 	public IProject getProject() {
 		return project;
+	}
+
+	public boolean hasErrors() {
+		return hasErrors;
+	}
+
+	void setHasErrors(boolean hasErrors) {
+		this.hasErrors = hasErrors;
 	}
 
 	@Override
