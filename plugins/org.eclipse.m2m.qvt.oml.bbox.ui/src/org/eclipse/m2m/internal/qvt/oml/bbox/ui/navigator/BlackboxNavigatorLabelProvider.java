@@ -25,11 +25,10 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 		}
 		if (element instanceof BlackboxUnitInfo) {
 			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
-			String suffix = unit.isUsed() ? Messages.BlackboxNavigator_usedSuffix : Messages.BlackboxNavigator_availableSuffix;
 			if (unit.hasErrors()) {
-				return unit.getQualifiedName() + suffix + Messages.BlackboxNavigator_failedSuffix;
+				return unit.getQualifiedName() + Messages.BlackboxNavigator_failedSuffix;
 			}
-			return unit.getQualifiedName() + suffix;
+			return unit.getQualifiedName();
 		}
 		if (element instanceof BlackboxModuleInfo) {
 			BlackboxModuleInfo module = (BlackboxModuleInfo) element;

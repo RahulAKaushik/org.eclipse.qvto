@@ -28,7 +28,6 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
-import org.eclipse.m2m.internal.qvt.oml.emf.util.mmregistry.MetamodelRegistry;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
 import org.eclipse.osgi.util.NLS;
@@ -188,7 +187,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 					if (monitor.isCanceled() || !isQVTProject(project)) {
 						return Status.CANCEL_STATUS;
 					}
-					BlackboxDiscoveryResult result = discoveryService.discover(project, false);
+					BlackboxDiscoveryResult result = discoveryService.discover(project, false, monitor);
 					synchronized (cache) {
 						if (discoveryJobs.get(project) == this) {
 							if (!monitor.isCanceled()) {
@@ -325,10 +324,17 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		return "qvto".equals(extension) //$NON-NLS-1$
 				|| "java".equals(extension) //$NON-NLS-1$
 				|| "class".equals(extension) //$NON-NLS-1$
-				|| "plugin.xml".equals(name) //$NON-NLS-1$
-				|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
-				|| ".classpath".equals(name) //$NON-NLS-1$
-				|| MetamodelRegistry.isMetamodelFileName(name)
-				|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
+					|| "plugin.xml".equals(name) //$NON-NLS-1$
+					|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
+					|| ".classpath".equals(name) //$NON-NLS-1$
+					|| isMetamodelFileName(name)
+					|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
+		}
+
+	private boolean isMetamodelFileName(String fileName) {
+		return fileName.endsWith(".ecore") //$NON-NLS-1$
+				|| fileName.endsWith(".xcore") //$NON-NLS-1$
+				|| fileName.endsWith(".emof") //$NON-NLS-1$
+				|| fileName.endsWith(".oclinecore"); //$NON-NLS-1$
 	}
 }

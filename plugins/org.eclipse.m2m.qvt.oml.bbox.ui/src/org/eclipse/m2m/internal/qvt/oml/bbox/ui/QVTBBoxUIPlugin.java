@@ -26,7 +26,6 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxMarkerValidationService;
-import org.eclipse.m2m.internal.qvt.oml.emf.util.mmregistry.MetamodelRegistry;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.osgi.framework.BundleContext;
 
@@ -160,10 +159,17 @@ public class QVTBBoxUIPlugin extends Plugin {
 		return "qvto".equals(extension) //$NON-NLS-1$
 				|| "java".equals(extension) //$NON-NLS-1$
 				|| "class".equals(extension) //$NON-NLS-1$
-				|| "plugin.xml".equals(name) //$NON-NLS-1$
-				|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
-				|| ".classpath".equals(name) //$NON-NLS-1$
-				|| MetamodelRegistry.isMetamodelFileName(name)
-				|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
+					|| "plugin.xml".equals(name) //$NON-NLS-1$
+					|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
+					|| ".classpath".equals(name) //$NON-NLS-1$
+					|| isMetamodelFileName(name)
+					|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
+	}
+
+	private boolean isMetamodelFileName(String fileName) {
+		return fileName.endsWith(".ecore") //$NON-NLS-1$
+				|| fileName.endsWith(".xcore") //$NON-NLS-1$
+				|| fileName.endsWith(".emof") //$NON-NLS-1$
+				|| fileName.endsWith(".oclinecore"); //$NON-NLS-1$
 	}
 }
