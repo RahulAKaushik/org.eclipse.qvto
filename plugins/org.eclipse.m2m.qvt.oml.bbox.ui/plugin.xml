@@ -40,6 +40,9 @@
                      value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxRootNode">
                </instanceof>
                <instanceof
+                     value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxLoadingNode">
+               </instanceof>
+               <instanceof
                      value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo">
                </instanceof>
                <instanceof
@@ -53,6 +56,26 @@
                </instanceof>
             </or>
          </possibleChildren>
+         <actionProvider
+               class="org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxNavigatorActionProvider"
+               id="org.eclipse.m2m.qvt.oml.bbox.ui.blackboxScopeActions">
+            <enablement>
+               <or>
+                  <instanceof
+                        value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxRootNode">
+                  </instanceof>
+                  <instanceof
+                        value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo">
+                  </instanceof>
+                  <instanceof
+                        value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo">
+                  </instanceof>
+                  <instanceof
+                        value="org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo">
+                  </instanceof>
+               </or>
+            </enablement>
+         </actionProvider>
       </navigatorContent>
    </extension>
 

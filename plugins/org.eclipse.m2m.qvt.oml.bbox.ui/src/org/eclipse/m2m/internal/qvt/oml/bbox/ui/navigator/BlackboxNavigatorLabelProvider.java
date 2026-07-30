@@ -24,7 +24,16 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 	@Override
 	public String getText(Object element) {
 		if (element instanceof BlackboxRootNode) {
-			return Messages.BlackboxNavigator_root;
+			BlackboxRootNode root = (BlackboxRootNode) element;
+			switch (root.getScope()) {
+				case PROJECT_VISIBLE:
+					return Messages.BlackboxNavigator_rootProjectVisible;
+				case PROJECT_ONLY:
+					return Messages.BlackboxNavigator_rootProjectOnly;
+				case PROJECT_DEPENDENCIES:
+				default:
+					return Messages.BlackboxNavigator_rootProjectDependencies;
+			}
 		}
 		if (element instanceof BlackboxLoadingNode) {
 			return Messages.BlackboxNavigator_loading;
