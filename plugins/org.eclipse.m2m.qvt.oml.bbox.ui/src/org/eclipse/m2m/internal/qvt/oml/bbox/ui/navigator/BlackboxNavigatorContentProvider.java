@@ -27,6 +27,7 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResult;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProjectDependencies;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
@@ -311,7 +312,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			QVTBBoxUIPlugin.log(e);
 		}
 
-		for (IProject project : affectedProjects) {
+		for (IProject project : BlackboxProjectDependencies.includeDependentQVTProjects(affectedProjects)) {
 			invalidate(project);
 		}
 		for (IProject project : markerChangedProjects) {
@@ -367,6 +368,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		return "qvto".equals(extension) //$NON-NLS-1$
 				|| "java".equals(extension) //$NON-NLS-1$
 				|| "class".equals(extension) //$NON-NLS-1$
+				|| "jar".equals(extension) //$NON-NLS-1$
 					|| "plugin.xml".equals(name) //$NON-NLS-1$
 					|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
 					|| ".classpath".equals(name) //$NON-NLS-1$

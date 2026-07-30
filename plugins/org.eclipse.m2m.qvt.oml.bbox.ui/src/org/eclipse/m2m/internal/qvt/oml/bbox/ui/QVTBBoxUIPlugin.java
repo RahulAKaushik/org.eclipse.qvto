@@ -26,6 +26,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxMarkerValidationService;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProjectDependencies;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.osgi.framework.BundleContext;
 
@@ -144,7 +145,7 @@ public class QVTBBoxUIPlugin extends Plugin {
 			log(e);
 		}
 
-		for (IProject project : affectedProjects) {
+		for (IProject project : BlackboxProjectDependencies.includeDependentQVTProjects(affectedProjects)) {
 			BlackboxMarkerValidationService.schedule(project);
 		}
 	}
@@ -159,6 +160,7 @@ public class QVTBBoxUIPlugin extends Plugin {
 		return "qvto".equals(extension) //$NON-NLS-1$
 				|| "java".equals(extension) //$NON-NLS-1$
 				|| "class".equals(extension) //$NON-NLS-1$
+				|| "jar".equals(extension) //$NON-NLS-1$
 					|| "plugin.xml".equals(name) //$NON-NLS-1$
 					|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
 					|| ".classpath".equals(name) //$NON-NLS-1$

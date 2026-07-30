@@ -93,7 +93,7 @@ public class ProjectBlackboxDiscoveryService {
 			URI projectURI = URIUtils.getResourceURI(project);
 			EPackage.Registry packageRegistry = createPackageRegistry(project);
 			ResolutionContext context = new ResolutionContextImpl(projectURI);
-			for (String qualifiedName : findProjectModuleNames(project, monitor)) {
+			for (String qualifiedName : findVisibleModuleNames(project, monitor)) {
 				if (monitor != null && monitor.isCanceled()) {
 					throw new OperationCanceledException();
 				}
@@ -118,7 +118,7 @@ public class ProjectBlackboxDiscoveryService {
 		return result;
 	}
 
-	private Set<String> findProjectModuleNames(final IProject project, IProgressMonitor monitor) {
+	private Set<String> findVisibleModuleNames(final IProject project, IProgressMonitor monitor) {
 		final Set<String> qualifiedNames = new LinkedHashSet<String>();
 		try {
 			if (!project.hasNature(JavaCore.NATURE_ID)) {
@@ -132,13 +132,13 @@ public class ProjectBlackboxDiscoveryService {
 					SearchPattern.R_EXACT_MATCH);
 			SearchParticipant[] participants = { SearchEngine.getDefaultSearchParticipant() };
 			IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { javaProject },
-					IJavaSearchScope.SOURCES);
+					IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS
+							| IJavaSearchScope.APPLICATION_LIBRARIES);
 			SearchRequestor requestor = new SearchRequestor() {
 				@Override
 				public void acceptSearchMatch(SearchMatch match) {
 					Object element = match.getElement();
-					IResource resource = match.getResource();
-					if (element instanceof IType && resource != null && project.equals(resource.getProject())) {
+					if (element instanceof IType) {
 						qualifiedNames.add(((IType) element).getFullyQualifiedName());
 					}
 				}
