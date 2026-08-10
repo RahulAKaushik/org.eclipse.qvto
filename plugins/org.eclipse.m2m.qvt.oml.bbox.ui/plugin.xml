@@ -3,6 +3,17 @@
 <plugin>
 
    <extension
+         point="org.eclipse.ui.views">
+      <view
+            category="org.eclipse.m2m.qvt.oml"
+            class="org.eclipse.m2m.internal.qvt.oml.bbox.ui.global.GlobalBlackboxView"
+            icon="icons/qvto-blackbox.png"
+            id="org.eclipse.m2m.qvt.oml.bbox.ui.views.globalBlackboxes"
+            name="%globalBlackboxViewName">
+      </view>
+   </extension>
+
+   <extension
          point="org.eclipse.ui.navigator.viewer">
       <viewerContentBinding
             viewerId="org.eclipse.ui.navigator.ProjectExplorer">

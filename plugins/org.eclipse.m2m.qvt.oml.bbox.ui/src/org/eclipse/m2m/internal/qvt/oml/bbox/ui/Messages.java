@@ -27,6 +27,18 @@ public class Messages extends NLS {
 	public static String BlackboxNavigator_scopeProjectOnly;
 	public static String BlackboxNavigator_scopeProjectVisible;
 
+	public static String GlobalBlackboxView_activePlugins;
+	public static String GlobalBlackboxView_canceled;
+	public static String GlobalBlackboxView_collapseAll;
+	public static String GlobalBlackboxView_discoveryJobName;
+	public static String GlobalBlackboxView_eclipsePlatform;
+	public static String GlobalBlackboxView_empty;
+	public static String GlobalBlackboxView_extensionContributions;
+	public static String GlobalBlackboxView_javaLibraries;
+	public static String GlobalBlackboxView_refresh;
+	public static String GlobalBlackboxView_runtimeRegistrations;
+	public static String GlobalBlackboxView_workspaceProjects;
+
 	public static String QVTBBoxUIPlugin_unexpectedError;
 
 	static {
