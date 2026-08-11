@@ -1,9 +1,11 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,6 +26,7 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
 import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
@@ -75,22 +78,47 @@ public class GlobalBlackboxDiscoveryService {
 	private void discoverWorkspace(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
 			IProgressMonitor monitor) {
 		SubMonitor progress = SubMonitor.convert(monitor);
+		List<IJavaProject> javaProjects = new ArrayList<IJavaProject>();
+		Map<IProject, IJavaProject> accessibleProjects = new LinkedHashMap<IProject, IJavaProject>();
 		Map<String, GlobalBlackboxGroup> projectGroups = new LinkedHashMap<String, GlobalBlackboxGroup>();
 		Map<String, GlobalBlackboxGroup> libraryGroups = new LinkedHashMap<String, GlobalBlackboxGroup>();
+		Map<IProject, JavaProjectContext> projectContexts = new LinkedHashMap<IProject, JavaProjectContext>();
+		Map<String, JavaProjectContext> libraryContexts = new LinkedHashMap<String, JavaProjectContext>();
 		Set<String> workspaceKeys = new LinkedHashSet<String>();
 		Set<String> libraryKeys = new LinkedHashSet<String>();
 
 		for (IProject project : ResourcesPlugin.getWorkspace().getRoot().getProjects()) {
 			checkCanceled(progress);
-			if (!isAccessibleJavaProject(project)) {
+			if (isAccessibleJavaProject(project)) {
+				IJavaProject javaProject = JavaCore.create(project);
+				javaProjects.add(javaProject);
+				accessibleProjects.put(project, javaProject);
+			}
+		}
+		if (javaProjects.isEmpty()) {
+			return;
+		}
+
+		int includeMask = IJavaSearchScope.SOURCES | IJavaSearchScope.APPLICATION_LIBRARIES;
+		for (IType type : findAnnotatedTypes(javaProjects, includeMask, progress)) {
+			checkCanceled(progress);
+			IPackageFragmentRoot root = (IPackageFragmentRoot) type.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+			if (root == null) {
 				continue;
 			}
 
-			IJavaProject javaProject = JavaCore.create(project);
-			ResolutionContext context = new ResolutionContextImpl(URIUtils.getResourceURI(project));
-			EPackage.Registry packageRegistry = ProjectBlackboxDiscoveryService.createPackageRegistry(project);
-			for (IType type : findAnnotatedTypes(javaProject, IJavaSearchScope.SOURCES, progress)) {
-				if (!project.equals(type.getJavaProject().getProject())) {
+			int rootKind;
+			try {
+				rootKind = root.getKind();
+			} catch (JavaModelException e) {
+				QVTBBoxUIPlugin.log(e);
+				continue;
+			}
+
+			if (rootKind == IPackageFragmentRoot.K_SOURCE) {
+				IJavaProject javaProject = type.getJavaProject();
+				IProject project = javaProject.getProject();
+				if (!accessibleProjects.containsKey(project)) {
 					continue;
 				}
 				String key = project.getName() + "|" + type.getFullyQualifiedName(); //$NON-NLS-1$
@@ -104,24 +132,28 @@ public class GlobalBlackboxDiscoveryService {
 					projectGroups.put(project.getName(), group);
 					result.getWorkspaceProjects().addChild(group);
 				}
-				addResolvedUnit(group, type.getFullyQualifiedName(), context, packageRegistry, attributedDescriptors);
-			}
-
-			for (IType type : findAnnotatedTypes(javaProject, IJavaSearchScope.APPLICATION_LIBRARIES, progress)) {
-				IPackageFragmentRoot root = (IPackageFragmentRoot) type.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
-				String rootKey = root != null ? root.getPath().toString() : type.getJavaProject().getElementName();
+				JavaProjectContext context = getProjectContext(projectContexts, javaProject);
+				addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
+						context.packageRegistry, attributedDescriptors);
+			} else if (rootKind == IPackageFragmentRoot.K_BINARY) {
+				String rootKey = root.getPath().toString();
 				String key = rootKey + "|" + type.getFullyQualifiedName(); //$NON-NLS-1$
 				if (!libraryKeys.add(key)) {
 					continue;
 				}
 				GlobalBlackboxGroup group = libraryGroups.get(rootKey);
 				if (group == null) {
+					IJavaProject javaProject = type.getJavaProject();
+					JavaProjectContext context = getProjectContext(projectContexts, javaProject);
 					group = new GlobalBlackboxGroup(result.getJavaLibraries(), GlobalBlackboxGroupKind.LIBRARY,
 							rootKey, libraryLabel(root, rootKey), javaProject);
 					libraryGroups.put(rootKey, group);
+					libraryContexts.put(rootKey, context);
 					result.getJavaLibraries().addChild(group);
 				}
-				addResolvedUnit(group, type.getFullyQualifiedName(), context, packageRegistry, attributedDescriptors);
+				JavaProjectContext context = libraryContexts.get(rootKey);
+				addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
+						context.packageRegistry, attributedDescriptors);
 			}
 		}
 	}
@@ -253,7 +285,7 @@ public class GlobalBlackboxDiscoveryService {
 		}
 	}
 
-	private Collection<IType> findAnnotatedTypes(final IJavaProject javaProject, int includeMask,
+	private Collection<IType> findAnnotatedTypes(List<IJavaProject> javaProjects, int includeMask,
 			IProgressMonitor monitor) {
 		final Map<String, IType> types = new LinkedHashMap<String, IType>();
 		try {
@@ -261,7 +293,8 @@ public class GlobalBlackboxDiscoveryService {
 					IJavaSearchConstants.ANNOTATION_TYPE, IJavaSearchConstants.ANNOTATION_TYPE_REFERENCE,
 					SearchPattern.R_EXACT_MATCH);
 			SearchParticipant[] participants = { SearchEngine.getDefaultSearchParticipant() };
-			IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { javaProject }, includeMask);
+			IJavaElement[] elements = javaProjects.toArray(new IJavaElement[javaProjects.size()]);
+			IJavaSearchScope scope = SearchEngine.createJavaSearchScope(elements, includeMask);
 			SearchRequestor requestor = new SearchRequestor() {
 				@Override
 				public void acceptSearchMatch(SearchMatch match) {
@@ -276,6 +309,17 @@ public class GlobalBlackboxDiscoveryService {
 			QVTBBoxUIPlugin.log(e);
 		}
 		return types.values();
+	}
+
+	private static JavaProjectContext getProjectContext(Map<IProject, JavaProjectContext> contexts,
+			IJavaProject javaProject) {
+		IProject project = javaProject.getProject();
+		JavaProjectContext context = contexts.get(project);
+		if (context == null) {
+			context = new JavaProjectContext(project);
+			contexts.put(project, context);
+		}
+		return context;
 	}
 
 	private static boolean isAccessibleJavaProject(IProject project) {
@@ -365,5 +409,16 @@ public class GlobalBlackboxDiscoveryService {
 			// Keep diagnostics robust even for exceptions with broken message implementations.
 		}
 		return message != null ? message : throwable.getClass().getName();
+	}
+
+	private static class JavaProjectContext {
+
+		final ResolutionContext resolutionContext;
+		final EPackage.Registry packageRegistry;
+
+		JavaProjectContext(IProject project) {
+			resolutionContext = new ResolutionContextImpl(URIUtils.getResourceURI(project));
+			packageRegistry = ProjectBlackboxDiscoveryService.createPackageRegistry(project);
+		}
 	}
 }

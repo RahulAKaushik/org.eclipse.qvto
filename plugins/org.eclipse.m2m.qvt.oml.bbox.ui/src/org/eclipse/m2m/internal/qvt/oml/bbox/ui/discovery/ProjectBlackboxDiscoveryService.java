@@ -84,11 +84,13 @@ public class ProjectBlackboxDiscoveryService {
 	public BlackboxDiscoveryResult discover(IProject project, BlackboxVisibilityScope scope, boolean updateMarkers,
 			IProgressMonitor monitor) {
 		BlackboxDiscoveryResult result = new BlackboxDiscoveryResult(project);
+		boolean canceled = false;
 
 		try {
 			discoverProject(result, project, scope, monitor);
 			sort(result);
 		} catch (OperationCanceledException e) {
+			canceled = true;
 			throw e;
 		} catch (RuntimeException e) {
 			QVTBBoxUIPlugin.log(e);
@@ -97,7 +99,7 @@ public class ProjectBlackboxDiscoveryService {
 			QVTBBoxUIPlugin.log(e);
 			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
 		} finally {
-			if (updateMarkers && scope == BlackboxVisibilityScope.PROJECT_VISIBLE) {
+			if (!canceled && updateMarkers && scope == BlackboxVisibilityScope.PROJECT_VISIBLE) {
 				updateMarkers(project, result);
 			}
 		}
