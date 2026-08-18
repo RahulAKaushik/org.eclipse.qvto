@@ -45,8 +45,10 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.URIUtils;
 import org.eclipse.m2m.qvt.oml.blackbox.java.Module;
+import org.eclipse.osgi.service.resolver.BundleDescription;
+import org.eclipse.pde.core.plugin.IPluginModelBase;
+import org.eclipse.pde.core.plugin.PluginRegistry;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 
 public class GlobalBlackboxDiscoveryService {
@@ -69,7 +71,7 @@ public class GlobalBlackboxDiscoveryService {
 
 		discoverWorkspace(result, attributedDescriptors, progress.split(35));
 		discoverExtensionContributions(result, attributedDescriptors, progress.split(10));
-		discoverActiveBundles(result, attributedDescriptors, progress.split(45));
+		discoverBundles(result, attributedDescriptors, progress.split(45));
 		discoverOtherRegistrations(result, attributedDescriptors, progress.split(10));
 		result.sort();
 		return result;
@@ -187,29 +189,37 @@ public class GlobalBlackboxDiscoveryService {
 		}
 	}
 
-	private void discoverActiveBundles(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
+	private void discoverBundles(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
 			IProgressMonitor monitor) {
-		Bundle owner = FrameworkUtil.getBundle(GlobalBlackboxDiscoveryService.class);
-		BundleContext bundleContext = owner != null ? owner.getBundleContext() : null;
-		if (bundleContext == null) {
+		Bundle owner = FrameworkUtil.getBundle(Module.class);
+		IPluginModelBase corePlugin = owner != null ? PluginRegistry.findModel(owner.getSymbolicName()) : null;
+		if (corePlugin == null) {
 			return;
 		}
-
-		for (Bundle bundle : bundleContext.getBundles()) {
+				
+		BundleDescription bundleDescription = corePlugin.getBundleDescription();
+		if (bundleDescription == null) {
+			return;
+		}
+		
+		BundleDescription[] dependents = bundleDescription.getDependents();
+		
+		for (BundleDescription dependent : dependents) {
 			checkCanceled(monitor);
-			if (bundle.getState() != Bundle.ACTIVE || bundle.getSymbolicName() == null) {
+			String bundleSymbolicName = dependent.getSymbolicName();
+			Bundle bundle = Platform.getBundle(bundleSymbolicName);
+			if (bundle == null || bundleSymbolicName == null) {
 				continue;
 			}
-			String bundleId = bundle.getSymbolicName();
 			GlobalBlackboxGroup group = null;
 			try {
-				ResolutionContext context = bundleContext(bundleId);
+				ResolutionContext context = bundleContext(bundleSymbolicName);
 				Collection<BlackboxUnitDescriptor> descriptors = BlackboxRegistry.INSTANCE
 						.getCompilationUnitDescriptors(context);
 				Set<String> bundleKeys = new HashSet<String>();
 				for (BlackboxUnitDescriptor descriptor : descriptors) {
 					checkCanceled(monitor);
-					if (descriptor == null || !isOsgiDescriptorFor(descriptor, bundleId)
+					if (descriptor == null || !isOsgiDescriptorFor(descriptor, bundleSymbolicName)
 							|| !isDefinedByBundle(descriptor, bundle)) {
 						continue;
 					}
@@ -219,7 +229,7 @@ public class GlobalBlackboxDiscoveryService {
 					}
 					if (group == null) {
 						group = new GlobalBlackboxGroup(result.getActivePlugins(), GlobalBlackboxGroupKind.BUNDLE,
-								bundleId, bundleId);
+								bundleSymbolicName, bundleSymbolicName);
 						result.getActivePlugins().addChild(group);
 					}
 					group.addChild(descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(),
@@ -230,7 +240,7 @@ public class GlobalBlackboxDiscoveryService {
 				QVTBBoxUIPlugin.log(e);
 				if (group == null) {
 					group = new GlobalBlackboxGroup(result.getActivePlugins(), GlobalBlackboxGroupKind.BUNDLE,
-							bundleId, bundleId);
+							bundleSymbolicName, bundleSymbolicName);
 					result.getActivePlugins().addChild(group);
 				}
 				group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, safeMessage(e)));
@@ -238,7 +248,7 @@ public class GlobalBlackboxDiscoveryService {
 				QVTBBoxUIPlugin.log(e);
 				if (group == null) {
 					group = new GlobalBlackboxGroup(result.getActivePlugins(), GlobalBlackboxGroupKind.BUNDLE,
-							bundleId, bundleId);
+							bundleSymbolicName, bundleSymbolicName);
 					result.getActivePlugins().addChild(group);
 				}
 				group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, safeMessage(e)));
