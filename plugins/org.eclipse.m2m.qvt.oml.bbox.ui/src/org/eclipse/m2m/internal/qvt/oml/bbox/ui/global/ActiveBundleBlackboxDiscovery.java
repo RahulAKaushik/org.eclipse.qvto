@@ -32,11 +32,13 @@ final class ActiveBundleBlackboxDiscovery {
 
 	private final BlackboxDescriptorLoader descriptorLoader;
 	private final ActiveBundleDescriptorFilter descriptorFilter;
+	private final ActiveBundleCandidateSelector candidateSelector;
 
 	ActiveBundleBlackboxDiscovery(BlackboxDescriptorLoader descriptorLoader,
-			ActiveBundleDescriptorFilter descriptorFilter) {
+			ActiveBundleDescriptorFilter descriptorFilter, ActiveBundleCandidateSelector candidateSelector) {
 		this.descriptorLoader = descriptorLoader;
 		this.descriptorFilter = descriptorFilter;
+		this.candidateSelector = candidateSelector;
 	}
 
 	void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
@@ -47,7 +49,7 @@ final class ActiveBundleBlackboxDiscovery {
 			return;
 		}
 
-		for (Bundle bundle : bundleContext.getBundles()) {
+		for (Bundle bundle : candidateSelector.select(bundleContext)) {
 			checkCanceled(monitor);
 			if (!isCandidate(bundle)) {
 				continue;

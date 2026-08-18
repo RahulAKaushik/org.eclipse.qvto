@@ -21,7 +21,7 @@ public class GlobalBlackboxDiscoveryService {
 	private final WorkspaceBlackboxDiscovery workspaceDiscovery = new WorkspaceBlackboxDiscovery(unitResolver);
 	private final ExtensionBlackboxDiscovery extensionDiscovery = new ExtensionBlackboxDiscovery(unitResolver);
 	private final ActiveBundleBlackboxDiscovery activeBundleDiscovery = new ActiveBundleBlackboxDiscovery(
-			descriptorLoader, new ActiveBundleDescriptorFilter());
+			descriptorLoader, new ActiveBundleDescriptorFilter(), new ActiveBundleCandidateSelector());
 	private final RuntimeBlackboxDiscovery runtimeDiscovery = new RuntimeBlackboxDiscovery(descriptorLoader);
 
 	public GlobalBlackboxDiscoveryResult discover(IProgressMonitor monitor) {
