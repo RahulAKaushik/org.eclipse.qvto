@@ -165,7 +165,7 @@ public class OSGiBlackboxProvider extends JavaBlackboxProvider {
 			BundleWiring bundleWiring = bundle.adapt(BundleWiring.class);
 						
 			if (bundleWiring != null) {
-				Collection<String> classResources = bundleWiring.listResources(Path.ROOT.toString(), "*.class", BundleWiring.LISTRESOURCES_RECURSE); //$NON-NLS-1$
+				Collection<String> classResources = bundleWiring.listResources(Path.ROOT.toString(), "*.class", BundleWiring.LISTRESOURCES_LOCAL | BundleWiring.LISTRESOURCES_RECURSE); //$NON-NLS-1$
 				
 				if (classResources != null) {
 					IPath[] classPath = getBundleClassPath(bundle);
