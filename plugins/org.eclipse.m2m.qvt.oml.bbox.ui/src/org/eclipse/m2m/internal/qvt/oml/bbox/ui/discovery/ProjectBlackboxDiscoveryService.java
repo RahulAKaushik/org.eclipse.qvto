@@ -1,8 +1,6 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
 import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IMarkerDelta;
@@ -17,17 +15,6 @@ import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.impl.EPackageRegistryImpl;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.search.IJavaSearchConstants;
-import org.eclipse.jdt.core.search.IJavaSearchScope;
-import org.eclipse.jdt.core.search.SearchEngine;
-import org.eclipse.jdt.core.search.SearchMatch;
-import org.eclipse.jdt.core.search.SearchParticipant;
-import org.eclipse.jdt.core.search.SearchPattern;
-import org.eclipse.jdt.core.search.SearchRequestor;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry;
@@ -43,6 +30,7 @@ public class ProjectBlackboxDiscoveryService {
 
 	private static final String MARKER_ATTRIBUTE = QVTBBoxUIPlugin.PLUGIN_ID + ".blackboxMarker"; //$NON-NLS-1$
 	private final BlackboxDescriptorLoader descriptorLoader = new BlackboxDescriptorLoader();
+	private final ProjectBlackboxJavaSearch javaSearch = new ProjectBlackboxJavaSearch();
 
 	public static boolean hasBlackboxProblemMarkers(IProject project) {
 		try {
@@ -111,7 +99,7 @@ public class ProjectBlackboxDiscoveryService {
 		EPackage.Registry packageRegistry = createPackageRegistry(project);
 		ResolutionContext context = new ResolutionContextImpl(projectURI);
 		BlackboxDescriptorCandidates candidates = new BlackboxDescriptorCandidates();
-		for (String qualifiedName : findVisibleModuleNames(project, scope, monitor)) {
+		for (String qualifiedName : javaSearch.findVisibleModuleNames(project, scope, monitor)) {
 			checkCanceled(monitor);
 			BlackboxUnitDescriptor descriptor = BlackboxRegistry.INSTANCE.getCompilationUnitDescriptor(qualifiedName, context);
 			candidates.add(qualifiedName, descriptor, packageRegistry);
@@ -145,46 +133,6 @@ public class ProjectBlackboxDiscoveryService {
 			QVTBBoxUIPlugin.log(e);
 			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
 		}
-	}
-
-	private Set<String> findVisibleModuleNames(final IProject project, final BlackboxVisibilityScope scope,
-			IProgressMonitor monitor) {
-		final Set<String> qualifiedNames = new LinkedHashSet<String>();
-		try {
-			if (!project.hasNature(JavaCore.NATURE_ID)) {
-				return qualifiedNames;
-			}
-
-			IJavaProject javaProject = JavaCore.create(project);
-			SearchPattern pattern = SearchPattern.createPattern(
-					org.eclipse.m2m.qvt.oml.blackbox.java.Module.class.getCanonicalName(),
-					IJavaSearchConstants.ANNOTATION_TYPE, IJavaSearchConstants.ANNOTATION_TYPE_REFERENCE,
-					SearchPattern.R_EXACT_MATCH);
-			SearchParticipant[] participants = { SearchEngine.getDefaultSearchParticipant() };
-			int includeMask = scope.includesJavaDependencies()
-					? IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS
-							| IJavaSearchScope.APPLICATION_LIBRARIES
-					: IJavaSearchScope.SOURCES;
-			IJavaSearchScope searchScope = SearchEngine.createJavaSearchScope(new IJavaElement[] { javaProject },
-					includeMask);
-			SearchRequestor requestor = new SearchRequestor() {
-				@Override
-				public void acceptSearchMatch(SearchMatch match) {
-					Object element = match.getElement();
-					if (element instanceof IType) {
-						IType type = (IType) element;
-						if (scope.includesJavaDependencies()
-								|| project.equals(type.getJavaProject().getProject())) {
-							qualifiedNames.add(type.getFullyQualifiedName());
-						}
-					}
-				}
-			};
-			new SearchEngine().search(pattern, participants, searchScope, requestor, monitor);
-		} catch (CoreException e) {
-			QVTBBoxUIPlugin.log(e);
-		}
-		return qualifiedNames;
 	}
 
 	private void checkCanceled(IProgressMonitor monitor) {
