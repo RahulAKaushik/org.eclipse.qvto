@@ -1,9 +1,7 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.core.resources.IMarker;
@@ -99,7 +97,7 @@ public class ProjectBlackboxDiscoveryService {
 			QVTBBoxUIPlugin.log(e);
 			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
 		} finally {
-			if (!canceled && updateMarkers && scope == BlackboxVisibilityScope.PROJECT_VISIBLE) {
+			if (!canceled && updateMarkers && scope.includesRegistryDescriptors()) {
 				updateMarkers(project, result);
 			}
 		}
@@ -112,32 +110,32 @@ public class ProjectBlackboxDiscoveryService {
 		URI projectURI = URIUtils.getResourceURI(project);
 		EPackage.Registry packageRegistry = createPackageRegistry(project);
 		ResolutionContext context = new ResolutionContextImpl(projectURI);
-		Map<String, DescriptorCandidate> candidates = new LinkedHashMap<String, DescriptorCandidate>();
+		BlackboxDescriptorCandidates candidates = new BlackboxDescriptorCandidates();
 		for (String qualifiedName : findVisibleModuleNames(project, scope, monitor)) {
 			checkCanceled(monitor);
 			BlackboxUnitDescriptor descriptor = BlackboxRegistry.INSTANCE.getCompilationUnitDescriptor(qualifiedName, context);
-			addCandidate(candidates, qualifiedName, descriptor, packageRegistry);
+			candidates.add(qualifiedName, descriptor, packageRegistry);
 		}
 
-		if (scope == BlackboxVisibilityScope.PROJECT_VISIBLE) {
+		if (scope.includesRegistryDescriptors()) {
 			checkCanceled(monitor);
 			collectRegistryDescriptors(result, candidates, context, packageRegistry);
 		}
 
-		for (DescriptorCandidate candidate : candidates.values()) {
+		for (BlackboxDescriptorCandidates.Candidate candidate : candidates.values()) {
 			checkCanceled(monitor);
-				result.addUnit(descriptorLoader.load(result, candidate.descriptor, candidate.qualifiedName,
-						candidate.packageRegistry));
+			result.addUnit(descriptorLoader.load(result, candidate.getDescriptor(), candidate.getQualifiedName(),
+					candidate.getPackageRegistry()));
 		}
 	}
 
 	private void collectRegistryDescriptors(BlackboxDiscoveryResult result,
-			Map<String, DescriptorCandidate> candidates, ResolutionContext context,
+			BlackboxDescriptorCandidates candidates, ResolutionContext context,
 			EPackage.Registry packageRegistry) {
 		try {
 			for (BlackboxUnitDescriptor descriptor : BlackboxRegistry.INSTANCE.getCompilationUnitDescriptors(context)) {
 				if (descriptor != null) {
-					addCandidate(candidates, descriptor.getQualifiedName(), descriptor, packageRegistry);
+					candidates.add(descriptor.getQualifiedName(), descriptor, packageRegistry);
 				}
 			}
 		} catch (RuntimeException e) {
@@ -146,15 +144,6 @@ public class ProjectBlackboxDiscoveryService {
 		} catch (LinkageError e) {
 			QVTBBoxUIPlugin.log(e);
 			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
-		}
-	}
-
-	private void addCandidate(Map<String, DescriptorCandidate> candidates, String qualifiedName,
-			BlackboxUnitDescriptor descriptor, EPackage.Registry packageRegistry) {
-		DescriptorCandidate existing = candidates.get(qualifiedName);
-		if (existing == null || existing.descriptor == null && descriptor != null) {
-			candidates.put(qualifiedName,
-					new DescriptorCandidate(qualifiedName, descriptor, packageRegistry));
 		}
 	}
 
@@ -172,10 +161,10 @@ public class ProjectBlackboxDiscoveryService {
 					IJavaSearchConstants.ANNOTATION_TYPE, IJavaSearchConstants.ANNOTATION_TYPE_REFERENCE,
 					SearchPattern.R_EXACT_MATCH);
 			SearchParticipant[] participants = { SearchEngine.getDefaultSearchParticipant() };
-			int includeMask = scope == BlackboxVisibilityScope.PROJECT_ONLY
-					? IJavaSearchScope.SOURCES
-					: IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS
-							| IJavaSearchScope.APPLICATION_LIBRARIES;
+			int includeMask = scope.includesJavaDependencies()
+					? IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS
+							| IJavaSearchScope.APPLICATION_LIBRARIES
+					: IJavaSearchScope.SOURCES;
 			IJavaSearchScope searchScope = SearchEngine.createJavaSearchScope(new IJavaElement[] { javaProject },
 					includeMask);
 			SearchRequestor requestor = new SearchRequestor() {
@@ -184,7 +173,7 @@ public class ProjectBlackboxDiscoveryService {
 					Object element = match.getElement();
 					if (element instanceof IType) {
 						IType type = (IType) element;
-						if (scope != BlackboxVisibilityScope.PROJECT_ONLY
+						if (scope.includesJavaDependencies()
 								|| project.equals(type.getJavaProject().getProject())) {
 							qualifiedNames.add(type.getFullyQualifiedName());
 						}
@@ -297,20 +286,6 @@ public class ProjectBlackboxDiscoveryService {
 				diagnostic.getMessage()));
 		marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_ERROR);
 		marker.setAttribute(IMarker.LOCATION, project.getFullPath().toString());
-	}
-
-	private static class DescriptorCandidate {
-
-		final String qualifiedName;
-		final BlackboxUnitDescriptor descriptor;
-		final EPackage.Registry packageRegistry;
-
-		DescriptorCandidate(String qualifiedName, BlackboxUnitDescriptor descriptor,
-				EPackage.Registry packageRegistry) {
-			this.qualifiedName = qualifiedName;
-			this.descriptor = descriptor;
-			this.packageRegistry = packageRegistry;
-		}
 	}
 
 }

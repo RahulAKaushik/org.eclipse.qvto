@@ -13,7 +13,9 @@
 package org.eclipse.m2m.internal.tests.qvt.oml.ui;
 
 import org.eclipse.m2m.internal.tests.qvt.oml.debugger.DebuggerTests;
+import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.BlackboxDescriptorCandidatesTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.BlackboxDescriptorLoaderTest;
+import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.BlackboxVisibilityScopeTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.completion.CompletionTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.editor.AllEditorTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.wizards.project.NewProjectCreationOperationTest;
@@ -30,7 +32,7 @@ import junit.framework.TestSuite;
  */
 @RunWith(Suite.class)
 @SuiteClasses({CompletionTests.class, AllEditorTests.class, DebuggerTests.class, NewProjectCreationOperationTest.class,
-	BlackboxDescriptorLoaderTest.class})
+	BlackboxDescriptorLoaderTest.class, BlackboxDescriptorCandidatesTest.class, BlackboxVisibilityScopeTest.class})
 public class AllTests {
 
 	public static void main(String[] args) {
