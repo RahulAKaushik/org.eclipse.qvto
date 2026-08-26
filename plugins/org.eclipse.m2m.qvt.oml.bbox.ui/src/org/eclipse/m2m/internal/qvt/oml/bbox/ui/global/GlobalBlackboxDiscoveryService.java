@@ -48,6 +48,9 @@ import org.eclipse.m2m.qvt.oml.blackbox.java.Module;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.namespace.BundleNamespace;
+import org.osgi.framework.wiring.BundleWire;
+import org.osgi.framework.wiring.BundleWiring;
 
 public class GlobalBlackboxDiscoveryService {
 
@@ -198,6 +201,12 @@ public class GlobalBlackboxDiscoveryService {
 		for (Bundle bundle : bundleContext.getBundles()) {
 			checkCanceled(monitor);
 			if (bundle.getState() != Bundle.ACTIVE || bundle.getSymbolicName() == null) {
+				continue;
+			}
+			if (!resolvesModuleAnnotation(bundle)) {
+				continue;
+			}
+			if (!hasModuleAnnotationWire(bundle)) {
 				continue;
 			}
 			String bundleId = bundle.getSymbolicName();
@@ -376,6 +385,63 @@ public class GlobalBlackboxDiscoveryService {
 	private static boolean isOsgiDescriptorFor(BlackboxUnitDescriptor descriptor, String bundleId) {
 		URI uri = descriptor.getURI();
 		return uri != null && (OSGI_QUERY_PREFIX + bundleId).equals(uri.query());
+	}
+
+	private static boolean resolvesModuleAnnotation(Bundle bundle) {
+		try {
+			// The OSGi provider can only recognize annotations with this class identity.
+			return bundle.loadClass(Module.class.getName()) == Module.class;
+		} catch (ClassNotFoundException e) {
+			return false;
+		} catch (RuntimeException e) {
+			return false;
+		} catch (LinkageError e) {
+			return false;
+		}
+	}
+
+	private static boolean hasModuleAnnotationWire(Bundle bundle) {
+		Bundle moduleBundle = FrameworkUtil.getBundle(Module.class);
+		if (moduleBundle == null || moduleBundle.equals(bundle)) {
+			return true;
+		}
+
+		BundleWiring wiring = bundle.adapt(BundleWiring.class);
+		if (wiring == null) {
+			return false;
+		}
+		// loadClass may succeed through Equinox buddy policy without a declared dependency.
+		for (BundleWire wire : wiring.getRequiredWires(null)) {
+			BundleWiring providerWiring = wire.getProviderWiring();
+			if (providerWiring != null && moduleBundle.equals(providerWiring.getBundle())) {
+				return true;
+			}
+			if (BundleNamespace.BUNDLE_NAMESPACE.equals(wire.getCapability().getNamespace())
+					&& reexportsModuleAnnotation(providerWiring, moduleBundle, new HashSet<Bundle>())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean reexportsModuleAnnotation(BundleWiring wiring, Bundle moduleBundle,
+			Set<Bundle> visitedBundles) {
+		if (wiring == null || !visitedBundles.add(wiring.getBundle())) {
+			return false;
+		}
+		for (BundleWire wire : wiring.getRequiredWires(BundleNamespace.BUNDLE_NAMESPACE)) {
+			String visibility = wire.getRequirement().getDirectives()
+					.get(BundleNamespace.REQUIREMENT_VISIBILITY_DIRECTIVE);
+			if (!BundleNamespace.VISIBILITY_REEXPORT.equals(visibility)) {
+				continue;
+			}
+			BundleWiring providerWiring = wire.getProviderWiring();
+			if (providerWiring != null && (moduleBundle.equals(providerWiring.getBundle())
+					|| reexportsModuleAnnotation(providerWiring, moduleBundle, visitedBundles))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean isDefinedByBundle(BlackboxUnitDescriptor descriptor, Bundle bundle) {
