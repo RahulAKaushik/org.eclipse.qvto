@@ -1,9 +1,12 @@
 package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -11,6 +14,8 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
@@ -47,6 +52,7 @@ public class ProjectBlackboxJavaSearchTest {
 	private static final String DIRECT = "visibility.direct.DirectLibrary"; //$NON-NLS-1$
 	private static final String TRANSITIVE = "visibility.transitive.TransitiveLibrary"; //$NON-NLS-1$
 	private static final String UNRELATED = "visibility.unrelated.UnrelatedLibrary"; //$NON-NLS-1$
+	private static final String EXTERNAL = "visibility.external.ExternalLibrary"; //$NON-NLS-1$
 	private static int projectSequence;
 
 	private final NullProgressMonitor monitor = new NullProgressMonitor();
@@ -55,14 +61,15 @@ public class ProjectBlackboxJavaSearchTest {
 	private IJavaProject app;
 	private IJavaProject direct;
 	private IJavaProject transitive;
+	private String projectPrefix;
 
 	@Before
 	public void setUp() throws Exception {
-		String prefix = "BlackboxVisibility" + (++projectSequence); //$NON-NLS-1$
-		app = createJavaProject(prefix + "App", LOCAL); //$NON-NLS-1$
-		direct = createJavaProject(prefix + "Direct", DIRECT); //$NON-NLS-1$
-		transitive = createJavaProject(prefix + "Transitive", TRANSITIVE); //$NON-NLS-1$
-		createJavaProject(prefix + "Unrelated", UNRELATED); //$NON-NLS-1$
+		projectPrefix = "BlackboxVisibility" + (++projectSequence); //$NON-NLS-1$
+		app = createJavaProject(projectPrefix + "App", LOCAL); //$NON-NLS-1$
+		direct = createJavaProject(projectPrefix + "Direct", DIRECT); //$NON-NLS-1$
+		transitive = createJavaProject(projectPrefix + "Transitive", TRANSITIVE); //$NON-NLS-1$
+		createJavaProject(projectPrefix + "Unrelated", UNRELATED); //$NON-NLS-1$
 	}
 
 	@After
@@ -94,6 +101,26 @@ public class ProjectBlackboxJavaSearchTest {
 	public void nonExportedTransitiveDependencyIsNotVisible() throws Exception {
 		addProjectDependency(direct, transitive, false);
 		addProjectDependency(app, direct, false);
+		buildWorkspace();
+
+		assertEquals(names(LOCAL, DIRECT), search.findVisibleModuleNames(app.getProject(),
+				BlackboxVisibilityScope.PROJECT_DEPENDENCIES, monitor));
+	}
+
+	@Test
+	public void exportedJarDependencyIsVisibleWithoutSourceProject() throws Exception {
+		addProjectDependency(app, direct, false);
+		createExternalLibraryJar(true);
+		buildWorkspace();
+
+		assertEquals(names(LOCAL, DIRECT, EXTERNAL), search.findVisibleModuleNames(app.getProject(),
+				BlackboxVisibilityScope.PROJECT_DEPENDENCIES, monitor));
+	}
+
+	@Test
+	public void nonExportedJarDependencyIsNotVisible() throws Exception {
+		addProjectDependency(app, direct, false);
+		createExternalLibraryJar(false);
 		buildWorkspace();
 
 		assertEquals(names(LOCAL, DIRECT), search.findVisibleModuleNames(app.getProject(),
@@ -144,6 +171,40 @@ public class ProjectBlackboxJavaSearchTest {
 		project.setRawClasspath(entries.toArray(new IClasspathEntry[entries.size()]), monitor);
 	}
 
+	private void addLibraryDependency(IJavaProject project, IPath libraryPath, boolean exported) throws Exception {
+		List<IClasspathEntry> entries = new ArrayList<IClasspathEntry>(Arrays.asList(project.getRawClasspath()));
+		entries.add(JavaCore.newLibraryEntry(libraryPath, null, null, null, new IClasspathAttribute[0], exported));
+		project.setRawClasspath(entries.toArray(new IClasspathEntry[entries.size()]), monitor);
+	}
+
+	private void createExternalLibraryJar(boolean exported) throws Exception {
+		IJavaProject sourceProject = createJavaProject(projectPrefix + "ExternalSource", EXTERNAL); //$NON-NLS-1$
+		buildWorkspace();
+
+		IPath classPath = new Path("bin").append( //$NON-NLS-1$
+				new Path(EXTERNAL.replace('.', '/')).addFileExtension("class")); //$NON-NLS-1$
+		IFile compiledClass = sourceProject.getProject().getFile(classPath);
+		assertTrue("Expected the external blackbox class to be compiled", compiledClass.exists()); //$NON-NLS-1$
+
+		IFolder libraryFolder = direct.getProject().getFolder("lib"); //$NON-NLS-1$
+		libraryFolder.create(true, true, monitor);
+		IFile library = libraryFolder.getFile("external-blackboxes.jar"); //$NON-NLS-1$
+		ByteArrayOutputStream contents = new ByteArrayOutputStream();
+		try (InputStream input = compiledClass.getContents();
+				JarOutputStream output = new JarOutputStream(contents)) {
+			output.putNextEntry(new JarEntry(EXTERNAL.replace('.', '/') + ".class")); //$NON-NLS-1$
+			byte[] buffer = new byte[4096];
+			int length;
+			while ((length = input.read(buffer)) != -1) {
+				output.write(buffer, 0, length);
+			}
+			output.closeEntry();
+		}
+		library.create(new ByteArrayInputStream(contents.toByteArray()), true, monitor);
+		sourceProject.getProject().delete(true, true, monitor);
+		addLibraryDependency(direct, library.getFullPath(), exported);
+	}
+
 	private void createModuleSource(IFolder sourceFolder, String qualifiedClassName) throws Exception {
 		int separator = qualifiedClassName.lastIndexOf('.');
 		String packageName = qualifiedClassName.substring(0, separator);
@@ -176,6 +237,9 @@ public class ProjectBlackboxJavaSearchTest {
 		ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, monitor);
 		JavaCore.rebuildIndex(monitor);
 		for (IProject project : projects) {
+			if (!project.exists()) {
+				continue;
+			}
 			for (IMarker marker : project.findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true,
 					IResource.DEPTH_INFINITE)) {
 				if (marker.getAttribute(IMarker.SEVERITY, IMarker.SEVERITY_INFO) == IMarker.SEVERITY_ERROR) {

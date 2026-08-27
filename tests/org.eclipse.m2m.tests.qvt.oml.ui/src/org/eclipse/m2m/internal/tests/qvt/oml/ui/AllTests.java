@@ -16,6 +16,7 @@ import org.eclipse.m2m.internal.tests.qvt.oml.debugger.DebuggerTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.BlackboxDescriptorCandidatesTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.BlackboxDescriptorLoaderTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.BlackboxVisibilityScopeTest;
+import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration.BlackboxProblemMarkerSynchronizerTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration.ProjectBlackboxJavaSearchTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.completion.CompletionTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.editor.AllEditorTests;
@@ -34,7 +35,7 @@ import junit.framework.TestSuite;
 @RunWith(Suite.class)
 @SuiteClasses({CompletionTests.class, AllEditorTests.class, DebuggerTests.class, NewProjectCreationOperationTest.class,
 	BlackboxDescriptorLoaderTest.class, BlackboxDescriptorCandidatesTest.class, BlackboxVisibilityScopeTest.class,
-	ProjectBlackboxJavaSearchTest.class})
+	BlackboxProblemMarkerSynchronizerTest.class, ProjectBlackboxJavaSearchTest.class})
 public class AllTests {
 
 	public static void main(String[] args) {
