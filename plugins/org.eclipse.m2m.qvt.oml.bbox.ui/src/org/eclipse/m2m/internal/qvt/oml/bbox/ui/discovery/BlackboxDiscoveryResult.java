@@ -4,6 +4,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Project-scoped discovery tree. Its parent is the project represented above
+ * the blackbox root node.
+ * <p>
+ * Discovery jobs populate this model off the UI thread. Once published to a
+ * viewer, consumers treat it and its children as read-only.
+ */
 public class BlackboxDiscoveryResult {
 
 	private final Object parent;

@@ -11,6 +11,8 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorLoad
 
 /**
  * Coordinates the discovery sources shown in the workspace-wide blackbox view.
+ * This non-UI service builds a complete result on the calling background
+ * thread; the view is responsible for publishing that result on the UI thread.
  */
 public class GlobalBlackboxDiscoveryService {
 

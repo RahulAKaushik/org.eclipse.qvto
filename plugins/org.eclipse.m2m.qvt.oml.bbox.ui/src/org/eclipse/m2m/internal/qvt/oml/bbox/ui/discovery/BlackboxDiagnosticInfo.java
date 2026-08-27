@@ -6,6 +6,10 @@ import java.util.List;
 
 import org.eclipse.emf.common.util.Diagnostic;
 
+/**
+ * A diagnostic tree node. Its parent is the result, unit, group, or diagnostic
+ * that owns it in the displayed tree.
+ */
 public class BlackboxDiagnosticInfo {
 
 	private final Object parent;

@@ -9,6 +9,10 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 
+/**
+ * A provenance group in the global tree. Its parent is either the global
+ * result or another group; children are nested groups, units, or diagnostics.
+ */
 public class GlobalBlackboxGroup {
 
 	private final Object parent;
@@ -47,6 +51,11 @@ public class GlobalBlackboxGroup {
 		return label;
 	}
 
+	/**
+	 * Returns the Java project used to resolve an Open action. For binary units
+	 * this is a project whose classpath exposes the unit, not necessarily the
+	 * physical owner of the descriptor or class file.
+	 */
 	public IJavaProject getJavaProject() {
 		return javaProject;
 	}

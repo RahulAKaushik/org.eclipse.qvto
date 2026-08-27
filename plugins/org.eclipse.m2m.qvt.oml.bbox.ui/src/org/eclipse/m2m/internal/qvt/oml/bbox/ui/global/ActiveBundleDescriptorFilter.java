@@ -9,6 +9,10 @@ public final class ActiveBundleDescriptorFilter {
 
 	private static final String OSGI_QUERY_PREFIX = "osgi="; //$NON-NLS-1$
 
+	/**
+	 * Accepts only descriptors attributed to this bundle whose Java class is
+	 * physically defined by the same bundle.
+	 */
 	public boolean accepts(BlackboxUnitDescriptor descriptor, Bundle bundle) {
 		return descriptor != null && bundle != null && bundle.getSymbolicName() != null
 				&& matchesBundleQuery(descriptor.getURI(), bundle.getSymbolicName())

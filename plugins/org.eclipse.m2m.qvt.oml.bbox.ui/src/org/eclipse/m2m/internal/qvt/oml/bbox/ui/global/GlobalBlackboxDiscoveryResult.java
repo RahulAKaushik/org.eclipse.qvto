@@ -4,6 +4,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Root model for one workspace-wide discovery run. The fixed top-level groups
+ * own all nested groups and unit models.
+ * <p>
+ * The model is built and sorted off the UI thread, then published as one
+ * complete viewer input on the UI thread.
+ */
 public class GlobalBlackboxDiscoveryResult {
 
 	private final GlobalBlackboxGroup workspaceProjects = new GlobalBlackboxGroup(this,

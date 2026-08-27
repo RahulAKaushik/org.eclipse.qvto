@@ -147,18 +147,22 @@ public class GlobalBlackboxView extends ViewPart {
 					completeDiscovery(generation, showCanceledResult ? canceledResult() : null);
 					return Status.CANCEL_STATUS;
 				} catch (RuntimeException e) {
-					QVTBBoxUIPlugin.log(e);
-					completeDiscovery(generation, errorResult(e));
-					return Status.CANCEL_STATUS;
+					return discoveryFailed(generation, e);
 				} catch (LinkageError e) {
-					QVTBBoxUIPlugin.log(e);
-					completeDiscovery(generation, errorResult(e));
-					return Status.CANCEL_STATUS;
+					return discoveryFailed(generation, e);
 				}
 			}
 		};
 		discoveryJob.setUser(false);
 		discoveryJob.schedule();
+	}
+
+	private IStatus discoveryFailed(int generation, Throwable throwable) {
+		IStatus status = QVTBBoxUIPlugin.createStatus(IStatus.ERROR, Messages.GlobalBlackboxView_discoveryFailed,
+				throwable);
+		QVTBBoxUIPlugin.log(status);
+		completeDiscovery(generation, errorResult(throwable));
+		return status;
 	}
 
 	private void completeDiscovery(final int generation, final GlobalBlackboxDiscoveryResult result) {

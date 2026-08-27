@@ -44,11 +44,9 @@ public final class BlackboxMarkerValidationService {
 					} catch (OperationCanceledException e) {
 						return Status.CANCEL_STATUS;
 					} catch (RuntimeException e) {
-						QVTBBoxUIPlugin.log(e);
-						return Status.CANCEL_STATUS;
+						return validationFailed(project, e);
 					} catch (LinkageError e) {
-						QVTBBoxUIPlugin.log(e);
-						return Status.CANCEL_STATUS;
+						return validationFailed(project, e);
 					} finally {
 						synchronized (JOBS) {
 							if (JOBS.get(project) == this) {
@@ -63,6 +61,13 @@ public final class BlackboxMarkerValidationService {
 			JOBS.put(project, job);
 			job.schedule(500L);
 		}
+	}
+
+	private static IStatus validationFailed(IProject project, Throwable throwable) {
+		String message = NLS.bind(Messages.BlackboxMarkerValidation_failed, project.getName());
+		IStatus status = QVTBBoxUIPlugin.createStatus(IStatus.ERROR, message, throwable);
+		QVTBBoxUIPlugin.log(status);
+		return status;
 	}
 
 	public static void cancelAll() {

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/** A loaded module whose parent is its containing {@link BlackboxUnitInfo}. */
 public class BlackboxModuleInfo {
 
 	private final BlackboxUnitInfo parent;

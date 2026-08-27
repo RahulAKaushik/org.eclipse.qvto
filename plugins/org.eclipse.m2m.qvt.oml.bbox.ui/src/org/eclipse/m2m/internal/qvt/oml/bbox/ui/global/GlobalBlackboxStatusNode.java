@@ -1,5 +1,6 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
+/** A leaf status whose parent is the global group in which it is displayed. */
 final class GlobalBlackboxStatusNode {
 
 	private final Object parent;

@@ -227,30 +227,12 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 					}
 					return Status.OK_STATUS;
 				} catch (OperationCanceledException e) {
-					synchronized (cache) {
-						if (discoveryJobs.get(project) == this) {
-							discoveryJobs.remove(project);
-						}
-					}
+					removeDiscoveryJob(project, this);
 					return Status.CANCEL_STATUS;
 				} catch (RuntimeException e) {
-					QVTBBoxUIPlugin.log(e);
-					synchronized (cache) {
-						if (discoveryJobs.get(project) == this) {
-							discoveryJobs.remove(project);
-						}
-					}
-					refresh(root);
-					return Status.CANCEL_STATUS;
+					return discoveryFailed(project, root, this, e);
 				} catch (LinkageError e) {
-					QVTBBoxUIPlugin.log(e);
-					synchronized (cache) {
-						if (discoveryJobs.get(project) == this) {
-							discoveryJobs.remove(project);
-						}
-					}
-					refresh(root);
-					return Status.CANCEL_STATUS;
+					return discoveryFailed(project, root, this, e);
 				}
 			}
 		};
@@ -263,6 +245,23 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			discoveryJobs.put(project, job);
 		}
 		job.schedule();
+	}
+
+	private IStatus discoveryFailed(IProject project, BlackboxRootNode root, Job job, Throwable throwable) {
+		String message = NLS.bind(Messages.BlackboxNavigator_discoveryFailed, project.getName());
+		IStatus status = QVTBBoxUIPlugin.createStatus(IStatus.ERROR, message, throwable);
+		QVTBBoxUIPlugin.log(status);
+		removeDiscoveryJob(project, job);
+		refresh(root);
+		return status;
+	}
+
+	private void removeDiscoveryJob(IProject project, Job job) {
+		synchronized (cache) {
+			if (discoveryJobs.get(project) == job) {
+				discoveryJobs.remove(project);
+			}
+		}
 	}
 
 	private void refresh(final BlackboxRootNode root) {
