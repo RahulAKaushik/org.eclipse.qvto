@@ -45,14 +45,17 @@ public class BlackboxDescriptorLoader {
 		} catch (BlackboxException e) {
 			addDiagnostic(unitInfo, e.getDiagnostic());
 			if (e.getDiagnostic() == null) {
-				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR,
+						BlackboxDiagnosticUtil.getMessage(e)));
 			}
 		} catch (RuntimeException e) {
 			QVTBBoxUIPlugin.log(e);
-			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR,
+					BlackboxDiagnosticUtil.getMessage(e)));
 		} catch (LinkageError e) {
 			QVTBBoxUIPlugin.log(e);
-			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR,
+					BlackboxDiagnosticUtil.getMessage(e)));
 		}
 		return unitInfo;
 	}
@@ -168,13 +171,4 @@ public class BlackboxDescriptorLoader {
 		return diagnosticInfo;
 	}
 
-	private static String safeMessage(Throwable throwable) {
-		String message = null;
-		try {
-			message = throwable.getMessage();
-		} catch (RuntimeException e) {
-			// Keep diagnostics robust even for exceptions with broken message implementations.
-		}
-		return message != null ? message : throwable.getClass().getName();
-	}
 }

@@ -20,6 +20,7 @@ import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticUtil;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxOpenAction;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
@@ -37,13 +38,15 @@ public class GlobalBlackboxView extends ViewPart {
 	public static final String ID = "org.eclipse.m2m.qvt.oml.bbox.ui.views.globalBlackboxes"; //$NON-NLS-1$
 
 	private final GlobalBlackboxDiscoveryService discoveryService = new GlobalBlackboxDiscoveryService();
+	private final GlobalBlackboxDiscoveryGeneration discoveryGeneration = new GlobalBlackboxDiscoveryGeneration();
 	private final BlackboxOpenAction openAction = new BlackboxOpenAction();
 	private TreeViewer viewer;
+	private volatile Display display;
 	private Job discoveryJob;
-	private int discoveryGeneration;
 
 	@Override
 	public void createPartControl(Composite parent) {
+		display = parent.getDisplay();
 		viewer = new TreeViewer(parent, SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL);
 		viewer.setContentProvider(new GlobalBlackboxContentProvider());
 		viewer.setLabelProvider(new GlobalBlackboxLabelProvider());
@@ -127,28 +130,29 @@ public class GlobalBlackboxView extends ViewPart {
 			viewer.setInput(GlobalBlackboxLoadingNode.INSTANCE);
 		}
 
-		final int generation = ++discoveryGeneration;
+		final int generation = discoveryGeneration.start();
+		final boolean showCanceledResult = showLoading;
 		discoveryJob = new Job(Messages.GlobalBlackboxView_discoveryJobName) {
 			@Override
 			protected IStatus run(IProgressMonitor monitor) {
 				try {
 					final GlobalBlackboxDiscoveryResult result = discoveryService.discover(monitor);
 					if (monitor.isCanceled()) {
-						updateInput(generation, canceledResult());
+						completeDiscovery(generation, showCanceledResult ? canceledResult() : null);
 						return Status.CANCEL_STATUS;
 					}
-					updateInput(generation, result);
+					completeDiscovery(generation, result);
 					return Status.OK_STATUS;
 				} catch (OperationCanceledException e) {
-					updateInput(generation, canceledResult());
+					completeDiscovery(generation, showCanceledResult ? canceledResult() : null);
 					return Status.CANCEL_STATUS;
 				} catch (RuntimeException e) {
 					QVTBBoxUIPlugin.log(e);
-					updateInput(generation, errorResult(e));
+					completeDiscovery(generation, errorResult(e));
 					return Status.CANCEL_STATUS;
 				} catch (LinkageError e) {
 					QVTBBoxUIPlugin.log(e);
-					updateInput(generation, errorResult(e));
+					completeDiscovery(generation, errorResult(e));
 					return Status.CANCEL_STATUS;
 				}
 			}
@@ -157,35 +161,34 @@ public class GlobalBlackboxView extends ViewPart {
 		discoveryJob.schedule();
 	}
 
-	private void updateInput(final int generation, final GlobalBlackboxDiscoveryResult result) {
-		Display display = viewer != null ? viewer.getControl().getDisplay() : null;
-		if (display == null || display.isDisposed()) {
+	private void completeDiscovery(final int generation, final GlobalBlackboxDiscoveryResult result) {
+		Display currentDisplay = display;
+		if (currentDisplay == null || currentDisplay.isDisposed()) {
 			return;
 		}
-		display.asyncExec(new Runnable() {
+		currentDisplay.asyncExec(new Runnable() {
 			public void run() {
 				if (viewer == null || viewer.getControl().isDisposed()) {
 					return;
 				}
 				synchronized (GlobalBlackboxView.this) {
-					if (generation != discoveryGeneration) {
+					if (!discoveryGeneration.isCurrent(generation)) {
 						return;
 					}
 					discoveryJob = null;
 				}
-				viewer.setInput(result);
+				if (result != null) {
+					viewer.setInput(result);
+				}
 			}
 		});
 	}
 
 	private static GlobalBlackboxDiscoveryResult errorResult(Throwable throwable) {
 		GlobalBlackboxDiscoveryResult result = new GlobalBlackboxDiscoveryResult();
-		String message = throwable.getMessage();
-		if (message == null) {
-			message = throwable.getClass().getName();
-		}
 		GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-		group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, message));
+		group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR,
+				BlackboxDiagnosticUtil.getMessage(throwable)));
 		return result;
 	}
 
@@ -205,11 +208,12 @@ public class GlobalBlackboxView extends ViewPart {
 
 	@Override
 	public synchronized void dispose() {
-		discoveryGeneration++;
+		discoveryGeneration.invalidate();
 		if (discoveryJob != null) {
 			discoveryJob.cancel();
 			discoveryJob = null;
 		}
+		display = null;
 		super.dispose();
 	}
 }

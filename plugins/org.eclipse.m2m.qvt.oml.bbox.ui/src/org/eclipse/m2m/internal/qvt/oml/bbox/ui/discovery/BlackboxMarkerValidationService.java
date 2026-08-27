@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
@@ -12,7 +11,7 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
-import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
+import org.eclipse.m2m.internal.qvt.oml.project.QvtProjectUtil;
 import org.eclipse.osgi.util.NLS;
 
 public final class BlackboxMarkerValidationService {
@@ -23,7 +22,7 @@ public final class BlackboxMarkerValidationService {
 	}
 
 	public static void schedule(final IProject project) {
-		if (!isQVTProject(project)) {
+		if (project == null || !QvtProjectUtil.isQvtProject(project)) {
 			return;
 		}
 
@@ -37,7 +36,7 @@ public final class BlackboxMarkerValidationService {
 				@Override
 				protected IStatus run(IProgressMonitor monitor) {
 					try {
-						if (monitor.isCanceled() || !isQVTProject(project)) {
+						if (monitor.isCanceled() || !QvtProjectUtil.isQvtProject(project)) {
 							return Status.CANCEL_STATUS;
 						}
 						new ProjectBlackboxDiscoveryService().discover(project, true, monitor);
@@ -75,11 +74,4 @@ public final class BlackboxMarkerValidationService {
 		}
 	}
 
-	private static boolean isQVTProject(IProject project) {
-		try {
-			return project != null && project.isAccessible() && project.hasNature(QVTOProjectPlugin.NATURE_ID);
-		} catch (CoreException e) {
-			return false;
-		}
-	}
 }

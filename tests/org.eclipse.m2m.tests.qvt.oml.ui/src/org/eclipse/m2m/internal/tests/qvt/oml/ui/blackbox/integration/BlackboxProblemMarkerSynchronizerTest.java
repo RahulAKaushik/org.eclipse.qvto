@@ -3,6 +3,7 @@ package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,11 +15,13 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProblemMarkerSynchronizer;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
 import org.junit.After;
@@ -101,6 +104,23 @@ public class BlackboxProblemMarkerSynchronizerTest {
 
 		assertFalse(ProjectBlackboxDiscoveryService.hasBlackboxProblemMarkers(project));
 		assertEquals(0, markersByMessage().size());
+	}
+
+	@Test
+	public void canceledDiscoveryPreservesExistingMarkers() throws Exception {
+		synchronizeProjectError("existing failure"); //$NON-NLS-1$
+		NullProgressMonitor canceledMonitor = new NullProgressMonitor();
+		canceledMonitor.setCanceled(true);
+
+		try {
+			new ProjectBlackboxDiscoveryService().discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, true,
+					canceledMonitor);
+			fail("Expected discovery cancellation"); //$NON-NLS-1$
+		} catch (OperationCanceledException e) {
+			// Expected: the existing complete marker set must remain published.
+		}
+
+		assertTrue(markersByMessage().containsKey("QVTo blackbox: existing failure")); //$NON-NLS-1$
 	}
 
 	private void synchronizeProjectError(String message) throws Exception {

@@ -60,10 +60,12 @@ public class ProjectBlackboxDiscoveryService {
 			throw e;
 		} catch (RuntimeException e) {
 			QVTBBoxUIPlugin.log(e);
-			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
+			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR,
+					BlackboxDiagnosticUtil.getMessage(e)));
 		} catch (LinkageError e) {
 			QVTBBoxUIPlugin.log(e);
-			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
+			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR,
+					BlackboxDiagnosticUtil.getMessage(e)));
 		} finally {
 			if (!canceled && updateMarkers && scope.includesRegistryDescriptors()) {
 				updateMarkers(project, result);
@@ -87,7 +89,7 @@ public class ProjectBlackboxDiscoveryService {
 
 		if (scope.includesRegistryDescriptors()) {
 			checkCanceled(monitor);
-			collectRegistryDescriptors(result, candidates, context, packageRegistry);
+			collectRegistryDescriptors(result, candidates, context, packageRegistry, monitor);
 		}
 
 		for (BlackboxDescriptorCandidates.Candidate candidate : candidates.values()) {
@@ -99,19 +101,24 @@ public class ProjectBlackboxDiscoveryService {
 
 	private void collectRegistryDescriptors(BlackboxDiscoveryResult result,
 			BlackboxDescriptorCandidates candidates, ResolutionContext context,
-			EPackage.Registry packageRegistry) {
+			EPackage.Registry packageRegistry, IProgressMonitor monitor) {
 		try {
 			for (BlackboxUnitDescriptor descriptor : BlackboxRegistry.INSTANCE.getCompilationUnitDescriptors(context)) {
+				checkCanceled(monitor);
 				if (descriptor != null) {
 					candidates.add(descriptor.getQualifiedName(), descriptor, packageRegistry);
 				}
 			}
+		} catch (OperationCanceledException e) {
+			throw e;
 		} catch (RuntimeException e) {
 			QVTBBoxUIPlugin.log(e);
-			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
+			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR,
+					BlackboxDiagnosticUtil.getMessage(e)));
 		} catch (LinkageError e) {
 			QVTBBoxUIPlugin.log(e);
-			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR, safeMessage(e)));
+			result.addDiagnostic(new BlackboxDiagnosticInfo(result, Diagnostic.ERROR,
+					BlackboxDiagnosticUtil.getMessage(e)));
 		}
 	}
 
@@ -128,16 +135,6 @@ public class ProjectBlackboxDiscoveryService {
 			return registry;
 		}
 		return new EPackageRegistryImpl(EPackage.Registry.INSTANCE);
-	}
-
-	private static String safeMessage(Throwable throwable) {
-		String message = null;
-		try {
-			message = throwable.getMessage();
-		} catch (RuntimeException e) {
-			// Keep diagnostics robust even for exceptions with broken message implementations.
-		}
-		return message != null ? message : throwable.getClass().getName();
 	}
 
 	private void sort(BlackboxDiscoveryResult result) {

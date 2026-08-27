@@ -24,14 +24,19 @@ public class GlobalBlackboxDiscoveryService {
 
 	public GlobalBlackboxDiscoveryResult discover(IProgressMonitor monitor) {
 		SubMonitor progress = SubMonitor.convert(monitor, 100);
+		progress.checkCanceled();
 		GlobalBlackboxDiscoveryResult result = new GlobalBlackboxDiscoveryResult();
 		Set<BlackboxDescriptorIdentity> attributedDescriptors = new HashSet<BlackboxDescriptorIdentity>();
 		EPackage.Registry packageRegistry = new EPackageRegistryImpl(EPackage.Registry.INSTANCE);
 
 		workspaceDiscovery.discover(result, attributedDescriptors, progress.split(35));
+		progress.checkCanceled();
 		extensionDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(10));
+		progress.checkCanceled();
 		activeBundleDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(45));
+		progress.checkCanceled();
 		runtimeDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(10));
+		progress.checkCanceled();
 		result.sort();
 		return result;
 	}
