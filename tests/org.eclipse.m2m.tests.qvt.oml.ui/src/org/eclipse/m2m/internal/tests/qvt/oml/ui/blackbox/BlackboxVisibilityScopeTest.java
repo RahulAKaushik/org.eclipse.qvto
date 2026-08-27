@@ -1,12 +1,23 @@
 package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 import org.junit.Test;
 
 public class BlackboxVisibilityScopeTest {
+
+	@Test
+	public void preferenceValuesRoundTripAndRejectUnknownValues() {
+		for (BlackboxVisibilityScope scope : BlackboxVisibilityScope.values()) {
+			assertSame(scope, BlackboxVisibilityScope.fromPreferenceValue(scope.getPreferenceValue()));
+		}
+		assertNull(BlackboxVisibilityScope.fromPreferenceValue(null));
+		assertNull(BlackboxVisibilityScope.fromPreferenceValue("unknown")); //$NON-NLS-1$
+	}
 
 	@Test
 	public void projectOnlyExcludesDependenciesAndRegistryDescriptors() {

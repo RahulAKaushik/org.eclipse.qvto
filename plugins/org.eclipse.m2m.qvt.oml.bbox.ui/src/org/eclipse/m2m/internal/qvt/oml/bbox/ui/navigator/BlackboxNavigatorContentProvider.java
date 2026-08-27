@@ -31,6 +31,7 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProjectDepende
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.settings.BlackboxVisibilitySettings;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
 import org.eclipse.osgi.util.NLS;
@@ -54,8 +55,8 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		};
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(resourceChangeListener, IResourceChangeEvent.POST_CHANGE);
 		scopeListener = new BlackboxVisibilitySettings.Listener() {
-			public void scopeChanged() {
-				resetForScopeChange();
+			public void scopeChanged(IProject project) {
+				resetForScopeChange(project);
 			}
 		};
 		BlackboxVisibilitySettings.addListener(scopeListener);
@@ -186,7 +187,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 	}
 
 	private BlackboxRootNode createRootNode(IProject project) {
-		BlackboxVisibilityScope scope = BlackboxVisibilitySettings.getScope();
+		BlackboxVisibilityScope scope = BlackboxVisibilitySettings.getScope(project);
 		BlackboxRootNode root = new BlackboxRootNode(project, scope);
 		BlackboxDiscoveryResult result = null;
 		synchronized (cache) {
@@ -359,8 +360,16 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		}
 	}
 
-	private void resetForScopeChange() {
-		clearDiscoveryState();
+	private void resetForScopeChange(final IProject project) {
+		Job job = null;
+		synchronized (cache) {
+			cache.remove(project);
+			job = discoveryJobs.remove(project);
+		}
+		if (job != null) {
+			job.cancel();
+		}
+
 		final Viewer currentViewer = viewer;
 		if (currentViewer == null) {
 			return;
@@ -372,7 +381,11 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 				if (control == null || control.isDisposed()) {
 					return Status.CANCEL_STATUS;
 				}
-				currentViewer.refresh();
+				if (currentViewer instanceof StructuredViewer) {
+					((StructuredViewer) currentViewer).refresh(project);
+				} else {
+					currentViewer.refresh();
+				}
 				return Status.OK_STATUS;
 			}
 		};
