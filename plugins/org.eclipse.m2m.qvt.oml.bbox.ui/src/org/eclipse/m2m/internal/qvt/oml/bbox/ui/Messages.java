@@ -13,7 +13,6 @@ public class Messages extends NLS {
 	public static String BlackboxMarkerValidation_jobName;
 
 	public static String BlackboxNavigator_discoveryJobName;
-	public static String BlackboxNavigator_failedSuffix;
 	public static String BlackboxNavigator_loading;
 	public static String BlackboxNavigator_moduleLabel;
 	public static String BlackboxNavigator_moduleLabelWithPackages;

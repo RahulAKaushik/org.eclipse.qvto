@@ -10,7 +10,7 @@ import org.junit.runners.Suite.SuiteClasses;
 @RunWith(Suite.class)
 @SuiteClasses({BlackboxDescriptorLoaderTest.class, BlackboxDescriptorCandidatesTest.class,
 	BlackboxVisibilityScopeTest.class, ActiveBundleDescriptorFilterTest.class,
-	ExtensionContributionNameResolverTest.class, GlobalBlackboxIdentityTest.class,
+	ExtensionContributionNameResolverTest.class, GlobalBlackboxIdentityTest.class, BlackboxUnitLabelTest.class,
 	ActiveBundleOwnershipTest.class, BlackboxProblemMarkerSynchronizerTest.class,
 	ProjectBlackboxJavaSearchTest.class})
 public class AllBlackboxTests {
