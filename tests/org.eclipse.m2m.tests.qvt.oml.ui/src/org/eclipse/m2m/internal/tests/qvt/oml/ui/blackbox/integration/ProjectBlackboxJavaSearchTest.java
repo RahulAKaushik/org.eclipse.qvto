@@ -31,20 +31,24 @@ import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.jdt.core.IClasspathAttribute;
 import org.eclipse.jdt.core.IClasspathEntry;
-import org.eclipse.jdt.core.IJavaModelMarker;
+import org.eclipse.jdt.core.IJavaModelStatus;
 import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaConventions;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.launching.IVMInstall;
+import org.eclipse.jdt.launching.IVMInstallType;
 import org.eclipse.jdt.launching.JavaRuntime;
-import org.eclipse.m2m.internal.qvt.oml.QvtPlugin;
+import org.eclipse.jdt.launching.VMStandin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxJavaSearch;
+import org.eclipse.m2m.qvt.oml.blackbox.java.Module;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
-import org.osgi.framework.Bundle;
 
 public class ProjectBlackboxJavaSearchTest {
 
@@ -53,6 +57,9 @@ public class ProjectBlackboxJavaSearchTest {
 	private static final String TRANSITIVE = "visibility.transitive.TransitiveLibrary"; //$NON-NLS-1$
 	private static final String UNRELATED = "visibility.unrelated.UnrelatedLibrary"; //$NON-NLS-1$
 	private static final String EXTERNAL = "visibility.external.ExternalLibrary"; //$NON-NLS-1$
+	private static final String TEST_VM_ID = "org.eclipse.qvto.blackbox.tests.vm"; //$NON-NLS-1$
+	private static IVMInstall previousDefaultVM;
+	private static IVMInstall testVM;
 	private static int projectSequence;
 
 	private final NullProgressMonitor monitor = new NullProgressMonitor();
@@ -62,6 +69,45 @@ public class ProjectBlackboxJavaSearchTest {
 	private IJavaProject direct;
 	private IJavaProject transitive;
 	private String projectPrefix;
+
+	@BeforeClass
+	public static void setUpTestVM() throws Exception {
+		previousDefaultVM = JavaRuntime.getDefaultVMInstall();
+		if (isValidVM(previousDefaultVM)) {
+			return;
+		}
+
+		String javaHome = System.getProperty("java.home"); //$NON-NLS-1$
+		File installLocation = javaHome == null ? null : new File(javaHome);
+		for (IVMInstallType vmType : JavaRuntime.getVMInstallTypes()) {
+			if (installLocation == null || !vmType.validateInstallLocation(installLocation).isOK()) {
+				continue;
+			}
+			VMStandin standin = new VMStandin(vmType, TEST_VM_ID);
+			standin.setName("QVTo blackbox test VM"); //$NON-NLS-1$
+			standin.setInstallLocation(installLocation);
+			testVM = standin.convertToRealVM();
+			JavaRuntime.setDefaultVMInstall(testVM, new NullProgressMonitor(), false);
+			return;
+		}
+		throw new IllegalStateException("Unable to use the PDE test application's java.home as a JDT VM: " //$NON-NLS-1$
+				+ javaHome);
+	}
+
+	private static boolean isValidVM(IVMInstall vm) {
+		return vm != null && vm.getInstallLocation() != null
+				&& vm.getVMInstallType().validateInstallLocation(vm.getInstallLocation()).isOK();
+	}
+
+	@AfterClass
+	public static void restoreTestVM() throws Exception {
+		if (testVM == null) {
+			return;
+		}
+		JavaRuntime.setDefaultVMInstall(previousDefaultVM, new NullProgressMonitor(), false);
+		testVM.getVMInstallType().disposeVMInstall(testVM.getId());
+		testVM = null;
+	}
 
 	@Before
 	public void setUp() throws Exception {
@@ -134,10 +180,12 @@ public class ProjectBlackboxJavaSearchTest {
 			project.delete(true, true, monitor);
 		}
 		IProjectDescription description = workspace.newProjectDescription(projectName);
-		description.setNatureIds(new String[] { JavaCore.NATURE_ID });
 		project.create(description, monitor);
 		project.open(monitor);
 		projects.add(project);
+		description = project.getDescription();
+		description.setNatureIds(new String[] { JavaCore.NATURE_ID });
+		project.setDescription(description, monitor);
 
 		IFolder sourceFolder = project.getFolder("src"); //$NON-NLS-1$
 		sourceFolder.create(true, true, monitor);
@@ -145,22 +193,28 @@ public class ProjectBlackboxJavaSearchTest {
 		outputFolder.create(true, true, monitor);
 		IJavaProject javaProject = JavaCore.create(project);
 		javaProject.setOutputLocation(outputFolder.getFullPath(), monitor);
-		javaProject.setRawClasspath(baseClasspath(sourceFolder), monitor);
+		IClasspathEntry[] classpath = baseClasspath(sourceFolder);
+		IJavaModelStatus classpathStatus = JavaConventions.validateClasspath(javaProject, classpath,
+				outputFolder.getFullPath());
+		assertTrue(classpathStatus.getMessage(), classpathStatus.isOK());
+		javaProject.setRawClasspath(classpath, monitor);
 		createModuleSource(sourceFolder, qualifiedClassName);
 		return javaProject;
 	}
 
 	private IClasspathEntry[] baseClasspath(IFolder sourceFolder) throws Exception {
-		Bundle qvtoBundle = Platform.getBundle(QvtPlugin.ID);
-		if (qvtoBundle == null) {
-			throw new IllegalStateException("QVTo core bundle is not available"); //$NON-NLS-1$
+		URL moduleResource = Module.class.getResource("Module.class"); //$NON-NLS-1$
+		if (moduleResource == null) {
+			throw new IllegalStateException("QVTo Module annotation is not available"); //$NON-NLS-1$
 		}
-		URL bundleRoot = FileLocator.toFileURL(qvtoBundle.getEntry("/")); //$NON-NLS-1$
-		IPath qvtoPath = new Path(new File(bundleRoot.toURI()).getAbsolutePath());
+		URL moduleFile = FileLocator.toFileURL(moduleResource);
+		IPath modulePath = new Path(new File(moduleFile.toURI()).getAbsolutePath());
+		IPath moduleTypePath = new Path(Module.class.getName().replace('.', '/'));
+		IPath qvtoClasses = modulePath.removeLastSegments(moduleTypePath.segmentCount());
 		return new IClasspathEntry[] {
 			JavaCore.newSourceEntry(sourceFolder.getFullPath()),
 			JavaRuntime.getDefaultJREContainerEntry(),
-			JavaCore.newLibraryEntry(qvtoPath, null, null)
+			JavaCore.newLibraryEntry(qvtoClasses, null, null)
 		};
 	}
 
@@ -236,17 +290,20 @@ public class ProjectBlackboxJavaSearchTest {
 	private void buildWorkspace() throws Exception {
 		ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, monitor);
 		JavaCore.rebuildIndex(monitor);
+		List<String> errors = new ArrayList<String>();
 		for (IProject project : projects) {
 			if (!project.exists()) {
 				continue;
 			}
-			for (IMarker marker : project.findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true,
+			for (IMarker marker : project.findMarkers(IMarker.PROBLEM, true,
 					IResource.DEPTH_INFINITE)) {
 				if (marker.getAttribute(IMarker.SEVERITY, IMarker.SEVERITY_INFO) == IMarker.SEVERITY_ERROR) {
-					throw new AssertionError(marker.getAttribute(IMarker.MESSAGE, "Java build error")); //$NON-NLS-1$
+					errors.add(project.getName() + "/" + marker.getResource().getProjectRelativePath() //$NON-NLS-1$
+							+ ": " + marker.getAttribute(IMarker.MESSAGE, "Java build error")); //$NON-NLS-1$ //$NON-NLS-2$
 				}
 			}
 		}
+		assertTrue("Java build errors: " + errors, errors.isEmpty()); //$NON-NLS-1$
 	}
 
 	private static Set<String> names(String... names) {

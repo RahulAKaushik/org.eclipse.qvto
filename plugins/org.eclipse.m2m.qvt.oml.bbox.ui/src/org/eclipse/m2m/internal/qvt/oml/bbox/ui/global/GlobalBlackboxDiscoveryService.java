@@ -12,10 +12,8 @@ import java.util.Set;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
@@ -37,7 +35,6 @@ import org.eclipse.jdt.core.search.SearchRequestor;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorLoader;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
@@ -54,31 +51,28 @@ import org.osgi.framework.wiring.BundleWiring;
 
 public class GlobalBlackboxDiscoveryService {
 
-	private static final String EXTENSION_POINT = "javaBlackboxUnits"; //$NON-NLS-1$
-	private static final String QVT_PLUGIN_ID = "org.eclipse.m2m.qvt.oml"; //$NON-NLS-1$
-	private static final String UNIT_ELEMENT = "unit"; //$NON-NLS-1$
-	private static final String LIBRARY_ELEMENT = "library"; //$NON-NLS-1$
-	private static final String NAME_ATTRIBUTE = "name"; //$NON-NLS-1$
-	private static final String NAMESPACE_ATTRIBUTE = "namespace"; //$NON-NLS-1$
-	private static final String CLASS_ATTRIBUTE = "class"; //$NON-NLS-1$
-	private static final String OSGI_QUERY_PREFIX = "osgi="; //$NON-NLS-1$
-
 	private final BlackboxDescriptorLoader descriptorLoader = new BlackboxDescriptorLoader();
+	private final ActiveBundleDescriptorFilter activeBundleDescriptorFilter = new ActiveBundleDescriptorFilter();
+	private final GlobalBlackboxUnitResolver unitResolver = new GlobalBlackboxUnitResolver(descriptorLoader);
+	private final ExtensionBlackboxDiscovery extensionDiscovery = new ExtensionBlackboxDiscovery(unitResolver);
+	private final RuntimeBlackboxDiscovery runtimeDiscovery = new RuntimeBlackboxDiscovery(descriptorLoader);
 
 	public GlobalBlackboxDiscoveryResult discover(IProgressMonitor monitor) {
 		SubMonitor progress = SubMonitor.convert(monitor, 100);
 		GlobalBlackboxDiscoveryResult result = new GlobalBlackboxDiscoveryResult();
-		Set<String> attributedDescriptors = new HashSet<String>();
+		Set<BlackboxDescriptorIdentity> attributedDescriptors = new HashSet<BlackboxDescriptorIdentity>();
+		EPackage.Registry packageRegistry = globalPackageRegistry();
 
 		discoverWorkspace(result, attributedDescriptors, progress.split(35));
-		discoverExtensionContributions(result, attributedDescriptors, progress.split(10));
-		discoverActiveBundles(result, attributedDescriptors, progress.split(45));
-		discoverOtherRegistrations(result, attributedDescriptors, progress.split(10));
+		extensionDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(10));
+		discoverActiveBundles(result, attributedDescriptors, packageRegistry, progress.split(45));
+		runtimeDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(10));
 		result.sort();
 		return result;
 	}
 
-	private void discoverWorkspace(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
+	private void discoverWorkspace(GlobalBlackboxDiscoveryResult result,
+			Set<BlackboxDescriptorIdentity> attributedDescriptors,
 			IProgressMonitor monitor) {
 		SubMonitor progress = SubMonitor.convert(monitor);
 		List<IJavaProject> javaProjects = new ArrayList<IJavaProject>();
@@ -87,8 +81,8 @@ public class GlobalBlackboxDiscoveryService {
 		Map<String, GlobalBlackboxGroup> libraryGroups = new LinkedHashMap<String, GlobalBlackboxGroup>();
 		Map<IProject, JavaProjectContext> projectContexts = new LinkedHashMap<IProject, JavaProjectContext>();
 		Map<String, JavaProjectContext> libraryContexts = new LinkedHashMap<String, JavaProjectContext>();
-		Set<String> workspaceKeys = new LinkedHashSet<String>();
-		Set<String> libraryKeys = new LinkedHashSet<String>();
+		Set<GlobalBlackboxOriginIdentity> workspaceKeys = new LinkedHashSet<GlobalBlackboxOriginIdentity>();
+		Set<GlobalBlackboxOriginIdentity> libraryKeys = new LinkedHashSet<GlobalBlackboxOriginIdentity>();
 
 		for (IProject project : ResourcesPlugin.getWorkspace().getRoot().getProjects()) {
 			checkCanceled(progress);
@@ -124,7 +118,8 @@ public class GlobalBlackboxDiscoveryService {
 				if (!accessibleProjects.containsKey(project)) {
 					continue;
 				}
-				String key = project.getName() + "|" + type.getFullyQualifiedName(); //$NON-NLS-1$
+				GlobalBlackboxOriginIdentity key = new GlobalBlackboxOriginIdentity(project.getName(),
+						type.getFullyQualifiedName());
 				if (!workspaceKeys.add(key)) {
 					continue;
 				}
@@ -136,11 +131,12 @@ public class GlobalBlackboxDiscoveryService {
 					result.getWorkspaceProjects().addChild(group);
 				}
 				JavaProjectContext context = getProjectContext(projectContexts, javaProject);
-				addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
+				unitResolver.addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
 						context.packageRegistry, attributedDescriptors);
 			} else if (rootKind == IPackageFragmentRoot.K_BINARY) {
 				String rootKey = root.getPath().toString();
-				String key = rootKey + "|" + type.getFullyQualifiedName(); //$NON-NLS-1$
+				GlobalBlackboxOriginIdentity key = new GlobalBlackboxOriginIdentity(rootKey,
+						type.getFullyQualifiedName());
 				if (!libraryKeys.add(key)) {
 					continue;
 				}
@@ -155,42 +151,14 @@ public class GlobalBlackboxDiscoveryService {
 					result.getJavaLibraries().addChild(group);
 				}
 				JavaProjectContext context = libraryContexts.get(rootKey);
-				addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
+				unitResolver.addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
 						context.packageRegistry, attributedDescriptors);
 			}
 		}
 	}
 
-	private void discoverExtensionContributions(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
-			IProgressMonitor monitor) {
-		Map<String, GlobalBlackboxGroup> bundleGroups = new LinkedHashMap<String, GlobalBlackboxGroup>();
-		Set<String> contributionKeys = new HashSet<String>();
-		IConfigurationElement[] elements = Platform.getExtensionRegistry()
-				.getConfigurationElementsFor(QVT_PLUGIN_ID, EXTENSION_POINT);
-		for (IConfigurationElement element : elements) {
-			checkCanceled(monitor);
-			String qualifiedName = extensionQualifiedName(element);
-			if (qualifiedName == null) {
-				continue;
-			}
-			String contributor = element.getContributor().getName();
-			String key = contributor + "|" + qualifiedName; //$NON-NLS-1$
-			if (!contributionKeys.add(key)) {
-				continue;
-			}
-			GlobalBlackboxGroup group = bundleGroups.get(contributor);
-			if (group == null) {
-				group = new GlobalBlackboxGroup(result.getExtensionContributions(), GlobalBlackboxGroupKind.BUNDLE,
-						contributor, contributor);
-				bundleGroups.put(contributor, group);
-				result.getExtensionContributions().addChild(group);
-			}
-			ResolutionContext context = bundleContext(contributor);
-			addResolvedUnit(group, qualifiedName, context, globalPackageRegistry(), attributedDescriptors);
-		}
-	}
-
-	private void discoverActiveBundles(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
+	private void discoverActiveBundles(GlobalBlackboxDiscoveryResult result,
+			Set<BlackboxDescriptorIdentity> attributedDescriptors, EPackage.Registry packageRegistry,
 			IProgressMonitor monitor) {
 		Bundle owner = FrameworkUtil.getBundle(GlobalBlackboxDiscoveryService.class);
 		BundleContext bundleContext = owner != null ? owner.getBundleContext() : null;
@@ -215,14 +183,13 @@ public class GlobalBlackboxDiscoveryService {
 				ResolutionContext context = bundleContext(bundleId);
 				Collection<BlackboxUnitDescriptor> descriptors = BlackboxRegistry.INSTANCE
 						.getCompilationUnitDescriptors(context);
-				Set<String> bundleKeys = new HashSet<String>();
+				Set<BlackboxDescriptorIdentity> bundleKeys = new HashSet<BlackboxDescriptorIdentity>();
 				for (BlackboxUnitDescriptor descriptor : descriptors) {
 					checkCanceled(monitor);
-					if (descriptor == null || !isOsgiDescriptorFor(descriptor, bundleId)
-							|| !isDefinedByBundle(descriptor, bundle)) {
+					if (!activeBundleDescriptorFilter.accepts(descriptor, bundle)) {
 						continue;
 					}
-					String key = descriptorKey(descriptor);
+					BlackboxDescriptorIdentity key = BlackboxDescriptorIdentity.of(descriptor);
 					if (!bundleKeys.add(key)) {
 						continue;
 					}
@@ -232,7 +199,7 @@ public class GlobalBlackboxDiscoveryService {
 						result.getActivePlugins().addChild(group);
 					}
 					group.addChild(descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(),
-							globalPackageRegistry()));
+							packageRegistry));
 					attributedDescriptors.add(key);
 				}
 			} catch (RuntimeException e) {
@@ -252,45 +219,6 @@ public class GlobalBlackboxDiscoveryService {
 				}
 				group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, safeMessage(e)));
 			}
-		}
-	}
-
-	private void discoverOtherRegistrations(GlobalBlackboxDiscoveryResult result, Set<String> attributedDescriptors,
-			IProgressMonitor monitor) {
-		try {
-			ResolutionContext context = new ResolutionContextImpl(URI.createURI("/")); //$NON-NLS-1$
-			Set<String> keys = new HashSet<String>();
-			for (BlackboxUnitDescriptor descriptor : BlackboxRegistry.INSTANCE.getCompilationUnitDescriptors(context)) {
-				checkCanceled(monitor);
-				if (descriptor == null) {
-					continue;
-				}
-				String key = descriptorKey(descriptor);
-				if (!keys.add(key) || attributedDescriptors.contains(key)) {
-					continue;
-				}
-				GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-				group.addChild(descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(),
-						globalPackageRegistry()));
-			}
-		} catch (RuntimeException e) {
-			QVTBBoxUIPlugin.log(e);
-			GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-			group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, safeMessage(e)));
-		} catch (LinkageError e) {
-			QVTBBoxUIPlugin.log(e);
-			GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-			group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, safeMessage(e)));
-		}
-	}
-
-	private void addResolvedUnit(GlobalBlackboxGroup group, String qualifiedName, ResolutionContext context,
-			EPackage.Registry packageRegistry, Set<String> attributedDescriptors) {
-		BlackboxUnitDescriptor descriptor = BlackboxRegistry.INSTANCE.getCompilationUnitDescriptor(qualifiedName, context);
-		BlackboxUnitInfo unit = descriptorLoader.load(group, descriptor, qualifiedName, packageRegistry);
-		group.addChild(unit);
-		if (descriptor != null) {
-			attributedDescriptors.add(descriptorKey(descriptor));
 		}
 	}
 
@@ -348,43 +276,11 @@ public class GlobalBlackboxDiscoveryService {
 		return new EPackageRegistryImpl(EPackage.Registry.INSTANCE);
 	}
 
-	private static String extensionQualifiedName(IConfigurationElement element) {
-		if (UNIT_ELEMENT.equals(element.getName())) {
-			String name = element.getAttribute(NAME_ATTRIBUTE);
-			if (name == null) {
-				return null;
-			}
-			String namespace = element.getAttribute(NAMESPACE_ATTRIBUTE);
-			if (namespace == null) {
-				namespace = element.getContributor().getName();
-			}
-			return namespace.length() == 0 ? name : namespace + "." + name; //$NON-NLS-1$
-		}
-		if (LIBRARY_ELEMENT.equals(element.getName())) {
-			String className = element.getAttribute(CLASS_ATTRIBUTE);
-			if (className == null) {
-				return null;
-			}
-			String name = element.getAttribute(NAME_ATTRIBUTE);
-			if (name == null) {
-				return className;
-			}
-			int separator = className.lastIndexOf('.');
-			return separator < 0 ? name : className.substring(0, separator + 1) + name;
-		}
-		return null;
-	}
-
 	private static String libraryLabel(IPackageFragmentRoot root, String fallback) {
 		if (root != null && root.getElementName() != null && root.getElementName().length() > 0) {
 			return root.getElementName();
 		}
 		return fallback;
-	}
-
-	private static boolean isOsgiDescriptorFor(BlackboxUnitDescriptor descriptor, String bundleId) {
-		URI uri = descriptor.getURI();
-		return uri != null && (OSGI_QUERY_PREFIX + bundleId).equals(uri.query());
 	}
 
 	private static boolean resolvesModuleAnnotation(Bundle bundle) {
@@ -442,23 +338,6 @@ public class GlobalBlackboxDiscoveryService {
 			}
 		}
 		return false;
-	}
-
-	private static boolean isDefinedByBundle(BlackboxUnitDescriptor descriptor, Bundle bundle) {
-		try {
-			Class<?> moduleClass = bundle.loadClass(descriptor.getQualifiedName());
-			return bundle.equals(FrameworkUtil.getBundle(moduleClass));
-		} catch (ClassNotFoundException e) {
-			return false;
-		} catch (RuntimeException e) {
-			return false;
-		} catch (LinkageError e) {
-			return false;
-		}
-	}
-
-	private static String descriptorKey(BlackboxUnitDescriptor descriptor) {
-		return descriptor.getQualifiedName() + "|" + String.valueOf(descriptor.getURI()); //$NON-NLS-1$
 	}
 
 	private static void checkCanceled(IProgressMonitor monitor) {
