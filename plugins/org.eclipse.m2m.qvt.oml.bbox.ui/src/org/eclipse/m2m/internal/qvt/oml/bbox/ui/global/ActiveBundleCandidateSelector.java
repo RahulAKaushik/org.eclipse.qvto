@@ -14,7 +14,12 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 
-/** Selects installed bundles that may define annotated QVTo blackboxes. */
+/**
+ * Selects installed bundles that may define annotated QVTo blackboxes.
+ * Dependents are resolved transitively from the bundle defining {@link Module};
+ * if the PDE state is unavailable, all installed bundles are returned so that
+ * discovery remains complete.
+ */
 public final class ActiveBundleCandidateSelector {
 
 	public Collection<Bundle> select(BundleContext bundleContext) {

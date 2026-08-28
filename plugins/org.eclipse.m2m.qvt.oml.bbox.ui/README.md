@@ -160,11 +160,19 @@ the corresponding workspace resource.
 
 ## Performance
 
-The global active-bundle phase scans only active bundles that can see the QVTo
-`@Module` annotation through normal OSGi wiring. A defining-bundle check prevents
-an imported class from being attributed to every bundle that can load it.
+The global active-bundle phase uses PDE's resolved bundle state to select the
+QVTo core bundle and its direct and indirect dependents. It then scans only
+active candidates that can see the QVTo `@Module` annotation through normal
+OSGi wiring. If PDE state is unavailable, selection falls back to all installed
+bundles so discovery remains complete. A defining-bundle check prevents an
+imported class from being attributed to every bundle that can load it.
 Buddy-only visibility is excluded because it caused costly scans of unrelated
 bundles without producing owned blackboxes.
+
+The core OSGi provider enumerates recursive class resources local to each
+selected bundle (including attached fragments), rather than rescanning classes
+from required bundles and imported packages. Explicit named imports remain on
+the singular `bundle.loadClass(...)` path and do not require `@Module`.
 
 The origin hierarchy is retained because profiling identified provider-driven
 bundle scanning, rather than tree rendering or grouping, as the dominant cost.
@@ -188,12 +196,12 @@ tests/org.eclipse.m2m.tests.qvt.oml.ui/src/
 - project visibility policies and persisted per-project settings;
 - exported and non-exported transitive project and JAR dependencies;
 - problem marker ownership, leaf creation, cleanup, and cancellation;
-- active-bundle ownership and extension-name resolution;
+- active-bundle candidate selection, ownership, and extension-name resolution;
 - global origin identity, cancellation, and stale-generation prevention;
 - resource-change classification and user-facing failure labels.
 
 Run `AllBlackboxTests` as a **JUnit Plug-in Test** from the
-`org.eclipse.m2m.tests.qvt.oml.ui` test bundle. The suite currently contains 41
+`org.eclipse.m2m.tests.qvt.oml.ui` test bundle. The suite currently contains 42
 test methods.
 
 To compile and package the stable reactor from the repository root:
