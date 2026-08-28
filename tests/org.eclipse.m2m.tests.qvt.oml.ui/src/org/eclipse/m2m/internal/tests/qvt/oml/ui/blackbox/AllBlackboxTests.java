@@ -1,5 +1,6 @@
 package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox;
 
+import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration.ActiveBundleCandidateSelectorTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration.ActiveBundleOwnershipTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration.BlackboxProblemMarkerSynchronizerTest;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration.BlackboxResourceChangeSupportTest;
@@ -15,7 +16,8 @@ import org.junit.runners.Suite.SuiteClasses;
 	ExtensionContributionNameResolverTest.class, GlobalBlackboxIdentityTest.class, BlackboxUnitLabelTest.class,
 	BlackboxDiagnosticUtilTest.class,
 	GlobalBlackboxDiscoveryLifecycleTest.class,
-	ActiveBundleOwnershipTest.class, BlackboxProblemMarkerSynchronizerTest.class,
+	ActiveBundleCandidateSelectorTest.class, ActiveBundleOwnershipTest.class,
+	BlackboxProblemMarkerSynchronizerTest.class,
 	BlackboxResourceChangeSupportTest.class, BlackboxVisibilitySettingsTest.class,
 	ProjectBlackboxJavaSearchTest.class})
 public class AllBlackboxTests {

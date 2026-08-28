@@ -15,9 +15,9 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 
 /** Selects installed bundles that may define annotated QVTo blackboxes. */
-final class ActiveBundleCandidateSelector {
+public final class ActiveBundleCandidateSelector {
 
-	Collection<Bundle> select(BundleContext bundleContext) {
+	public Collection<Bundle> select(BundleContext bundleContext) {
 		Bundle moduleBundle = FrameworkUtil.getBundle(Module.class);
 		IPluginModelBase moduleModel = moduleBundle != null
 				? PluginRegistry.findModel(moduleBundle.getSymbolicName()) : null;
