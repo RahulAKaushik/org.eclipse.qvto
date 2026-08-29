@@ -18,8 +18,8 @@ public class ActiveBundleCandidateSelectorTest {
 
 	@Test
 	public void selectsDirectAndIndirectDependentsOnly() {
-		Bundle testBundle = FrameworkUtil.getBundle(getClass());
-		BundleContext bundleContext = testBundle != null ? testBundle.getBundleContext() : null;
+		Bundle ownerBundle = FrameworkUtil.getBundle(GlobalBlackboxDiscoveryService.class);
+		BundleContext bundleContext = ownerBundle != null ? ownerBundle.getBundleContext() : null;
 		assertNotNull(bundleContext);
 
 		Collection<Bundle> candidates = new ActiveBundleCandidateSelector().select(bundleContext);
