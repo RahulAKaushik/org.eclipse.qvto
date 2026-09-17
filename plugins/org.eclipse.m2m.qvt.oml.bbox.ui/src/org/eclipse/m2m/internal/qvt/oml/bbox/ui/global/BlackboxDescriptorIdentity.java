@@ -3,6 +3,11 @@ package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
 
+/**
+ * Identifies a registry descriptor by qualified name and URI, independently of
+ * its Java object identity. Used to suppress repeated enumeration, including
+ * entries already attributed before the runtime fallback phase.
+ */
 public final class BlackboxDescriptorIdentity {
 
 	private final String qualifiedName;

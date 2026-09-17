@@ -14,6 +14,11 @@ import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
 
+/**
+ * Resolves declared extension names in their contributor's bundle context.
+ * Contributions are inventoried independently of the active-bundle annotation
+ * scan, so that scan's eligibility filters do not hide explicit registrations.
+ */
 final class ExtensionBlackboxDiscovery {
 
 	private static final String EXTENSION_POINT = "javaBlackboxUnits"; //$NON-NLS-1$

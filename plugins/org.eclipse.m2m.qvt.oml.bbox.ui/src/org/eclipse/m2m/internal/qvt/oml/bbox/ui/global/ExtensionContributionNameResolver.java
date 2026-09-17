@@ -1,5 +1,10 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
+/**
+ * Mirrors the registry naming rules for unit and legacy library contributions.
+ * A missing unit namespace defaults to the contributor; an explicitly empty
+ * namespace stays empty. A library alias replaces only the class's simple name.
+ */
 public final class ExtensionContributionNameResolver {
 
 	public String resolve(String elementName, String contributor, String name, String namespace, String className) {

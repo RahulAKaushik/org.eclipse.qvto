@@ -1,5 +1,10 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
+/**
+ * Deduplicates a qualified unit name within one project, library, or contributor
+ * origin while preserving the same name from other origins. Separate fields
+ * avoid collisions that delimiter-concatenated string keys could introduce.
+ */
 public final class GlobalBlackboxOriginIdentity {
 
 	private final String originKey;

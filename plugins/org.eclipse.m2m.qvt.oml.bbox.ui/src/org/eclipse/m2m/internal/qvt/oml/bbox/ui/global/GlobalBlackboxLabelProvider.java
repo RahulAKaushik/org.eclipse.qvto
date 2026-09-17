@@ -80,6 +80,7 @@ public class GlobalBlackboxLabelProvider extends BlackboxNavigatorLabelProvider 
 
 	@Override
 	public void dispose() {
+		// Dispose our generated group overlays; super owns the unit overlay.
 		if (folderErrorImage != null) {
 			folderErrorImage.dispose();
 			folderErrorImage = null;

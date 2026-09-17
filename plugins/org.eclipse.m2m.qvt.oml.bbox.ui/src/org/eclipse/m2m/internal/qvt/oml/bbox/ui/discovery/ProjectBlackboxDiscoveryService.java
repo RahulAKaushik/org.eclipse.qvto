@@ -58,6 +58,11 @@ public class ProjectBlackboxDiscoveryService {
 		return discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, updateMarkers, monitor);
 	}
 
+	/**
+	 * Discovers without compiling transformations or traversing their imports.
+	 * Marker updates are honored only for the complete PROJECT_VISIBLE scope;
+	 * callers displaying a narrower scope must leave validation to its own job.
+	 */
 	public BlackboxDiscoveryResult discover(IProject project, BlackboxVisibilityScope scope, boolean updateMarkers,
 			IProgressMonitor monitor) {
 		BlackboxDiscoveryResult result = new BlackboxDiscoveryResult(project);
@@ -93,6 +98,8 @@ public class ProjectBlackboxDiscoveryService {
 			collectJavaDescriptor(result, candidates, qualifiedName, context, packageRegistry);
 		}
 
+		// Enumerate after named lookups have populated demand-driven providers.
+		// This also adds registrations with no annotated Java search candidate.
 		if (scope.includesRegistryDescriptors()) {
 			checkCanceled(monitor);
 			collectRegistryDescriptors(result, project, candidates, context, packageRegistry, monitor);

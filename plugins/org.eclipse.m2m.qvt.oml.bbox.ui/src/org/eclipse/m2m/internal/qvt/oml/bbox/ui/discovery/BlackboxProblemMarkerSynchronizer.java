@@ -10,6 +10,12 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Replaces only bbox-owned markers within the shared QVTo problem marker type.
+ * Projects own these markers even when the failing unit comes from a dependency;
+ * the marker location identifies that unit. Only the deepest error diagnostics
+ * create markers, avoiding duplicate parent/child reports in Problems.
+ */
 public final class BlackboxProblemMarkerSynchronizer {
 
 	private static final String MARKER_ATTRIBUTE = QVTBBoxUIPlugin.PLUGIN_ID + ".blackboxMarker"; //$NON-NLS-1$
@@ -38,6 +44,11 @@ public final class BlackboxProblemMarkerSynchronizer {
 				&& markerDelta.getAttribute(MARKER_ATTRIBUTE, false);
 	}
 
+	/**
+	 * Replaces the previous marker set. Callers must supply a completed discovery
+	 * result and skip this call after cancellation; replacement itself has no
+	 * cancellation or rollback mechanism.
+	 */
 	public void synchronize(IProject project, Iterable<BlackboxDiagnosticInfo> projectDiagnostics,
 			Iterable<BlackboxUnitInfo> units) throws CoreException {
 		deleteMarkers(project);

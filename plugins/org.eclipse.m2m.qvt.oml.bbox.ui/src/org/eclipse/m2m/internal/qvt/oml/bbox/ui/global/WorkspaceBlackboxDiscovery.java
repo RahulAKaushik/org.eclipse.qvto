@@ -36,6 +36,11 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.URIUtils;
 import org.eclipse.m2m.qvt.oml.blackbox.java.Module;
 
+/**
+ * Discovers annotated source and binary types in one combined JDT search over
+ * accessible Java projects. Results are grouped by source project or binary
+ * root, retaining equal qualified names when they have different origins.
+ */
 final class WorkspaceBlackboxDiscovery {
 
 	private final GlobalBlackboxUnitResolver unitResolver;
@@ -139,6 +144,8 @@ final class WorkspaceBlackboxDiscovery {
 			libraryContexts.put(rootKey, context);
 			result.getJavaLibraries().addChild(group);
 		}
+		// A shared binary root uses the first encountered project's resolution
+		// and navigation context consistently for all units in that group.
 		JavaProjectContext context = libraryContexts.get(rootKey);
 		unitResolver.addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
 				context.packageRegistry, attributedDescriptors);

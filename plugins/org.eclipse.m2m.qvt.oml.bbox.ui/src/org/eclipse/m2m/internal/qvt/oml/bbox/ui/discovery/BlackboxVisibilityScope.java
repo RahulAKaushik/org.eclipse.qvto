@@ -1,5 +1,10 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
+/**
+ * Project-tree discovery policies. Both dependency-aware scopes include Java
+ * project and library dependencies; only PROJECT_VISIBLE also enumerates
+ * registry providers. Preference values are stable independently of enum names.
+ */
 public enum BlackboxVisibilityScope {
 
 	PROJECT_VISIBLE("projectVisible", true, true), //$NON-NLS-1$
@@ -21,6 +26,9 @@ public enum BlackboxVisibilityScope {
 		return preferenceValue;
 	}
 
+	/**
+	 * Returns null for missing or unknown values so settings can apply the default.
+	 */
 	public static BlackboxVisibilityScope fromPreferenceValue(String value) {
 		for (BlackboxVisibilityScope scope : values()) {
 			if (scope.preferenceValue.equals(value)) {

@@ -20,6 +20,12 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Final inventory phase for descriptors not attributed by earlier phases.
+ * Enumeration uses a context with no workspace project or platform bundle;
+ * descriptor identity prevents already attributed registrations from appearing
+ * again in this fallback group.
+ */
 final class RuntimeBlackboxDiscovery {
 
 	private final BlackboxDescriptorLoader descriptorLoader;

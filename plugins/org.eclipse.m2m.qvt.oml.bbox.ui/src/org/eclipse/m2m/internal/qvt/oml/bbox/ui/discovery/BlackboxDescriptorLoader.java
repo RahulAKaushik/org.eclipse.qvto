@@ -23,8 +23,17 @@ import org.eclipse.m2m.internal.qvt.oml.expressions.ModelType;
 import org.eclipse.m2m.internal.qvt.oml.expressions.Module;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Converts a provider descriptor into the model shared by both blackbox trees.
+ * Loading uses the caller's metamodel registry and retains failed units with
+ * their diagnostic hierarchy. This service does not write Problems markers.
+ */
 public class BlackboxDescriptorLoader {
 
+	/**
+	 * Loads on the discovery thread. A null descriptor represents an unresolved
+	 * candidate and produces an error node with the supplied qualified name.
+	 */
 	public BlackboxUnitInfo load(Object parent, BlackboxUnitDescriptor descriptor, String qualifiedName,
 			EPackage.Registry packageRegistry) {
 		URI descriptorURI = descriptor != null ? descriptor.getURI() : null;
@@ -73,6 +82,8 @@ public class BlackboxDescriptorLoader {
 		unitInfo.addModule(moduleInfo);
 		collectPackageURIs(moduleInfo, module);
 
+		// Use the provider's QVTo model: @Operation customizes Java methods but
+		// is not an inclusion filter for the operations exposed by a library.
 		List<EOperation> operations = new ArrayList<EOperation>(module.getEOperations());
 		Collections.sort(operations, new Comparator<EOperation>() {
 			public int compare(EOperation left, EOperation right) {

@@ -17,6 +17,11 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Shared named-lookup boundary for workspace and extension discovery. A provider
+ * lookup failure is reported in its origin group so unrelated units can still
+ * be discovered; cancellation of the lookup propagates to the discovery job.
+ */
 final class GlobalBlackboxUnitResolver {
 
 	private final BlackboxDescriptorLoader descriptorLoader;

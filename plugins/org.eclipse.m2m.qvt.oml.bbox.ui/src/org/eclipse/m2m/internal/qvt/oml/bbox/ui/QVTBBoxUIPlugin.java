@@ -31,11 +31,14 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxResourceChange
 import org.osgi.framework.BundleContext;
 
 /**
- * The activator class controls the plug-in life cycle
+ * Owns the resource listener and background marker-validation lifecycle.
+ * Validation starts when this lazy bundle is activated and does not depend on
+ * expanding a blackbox tree. Navigator caches and global-view jobs are owned
+ * separately by their UI components.
  */
 public class QVTBBoxUIPlugin extends Plugin {
 
-	// The plug-in NATURE_ID
+	// Bundle identifier used for preferences, logging, and marker ownership.
 	public static final String PLUGIN_ID = "org.eclipse.m2m.qvt.oml.bbox.ui"; //$NON-NLS-1$
 
 	// The shared instance

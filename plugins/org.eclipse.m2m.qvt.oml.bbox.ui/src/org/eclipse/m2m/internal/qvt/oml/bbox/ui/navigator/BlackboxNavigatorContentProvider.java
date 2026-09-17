@@ -40,9 +40,16 @@ import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.progress.WorkbenchJob;
 
+/**
+ * Owns the Project Explorer discovery cache, jobs, and invalidation listeners.
+ * Child requests schedule background discovery; viewer refreshes run through
+ * WorkbenchJob on the UI thread. Marker validation has a separate lifecycle and
+ * is not triggered by these display-only discoveries.
+ */
 public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 
 	private final ProjectBlackboxDiscoveryService discoveryService = new ProjectBlackboxDiscoveryService();
+	// The cache monitor protects both maps, including job-identity publication checks.
 	private final Map<IProject, BlackboxDiscoveryResult> cache = new HashMap<IProject, BlackboxDiscoveryResult>();
 	private final Map<IProject, Job> discoveryJobs = new HashMap<IProject, Job>();
 	private final IResourceChangeListener resourceChangeListener;
@@ -215,6 +222,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 					BlackboxDiscoveryResult result = discoveryService.discover(project, root.getScope(), false, monitor);
 					root.setHasErrors(result.hasErrors());
 					synchronized (cache) {
+						// Cancellation is cooperative; a replaced job must not publish.
 						if (discoveryJobs.get(project) == this) {
 							if (!monitor.isCanceled()) {
 								cache.put(project, result);
@@ -343,6 +351,8 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 	}
 
 	private void invalidate(IProject project) {
+		// Retain the last complete tree while a resource-triggered reload runs.
+		// Scope changes instead clear the cache because the displayed policy changed.
 		Job job = null;
 		boolean hasCachedResult = false;
 		synchronized (cache) {

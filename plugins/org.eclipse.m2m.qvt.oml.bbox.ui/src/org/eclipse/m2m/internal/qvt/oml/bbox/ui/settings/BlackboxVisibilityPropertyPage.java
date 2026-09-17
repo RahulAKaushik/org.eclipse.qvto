@@ -16,6 +16,11 @@ import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.ui.dialogs.PropertyPage;
 
+/**
+ * Edits the selected QVTo project's display scope. Radio-button changes and
+ * Restore Defaults remain local to the page until Apply or OK persists them;
+ * settings listeners then invalidate the project's navigator state.
+ */
 public class BlackboxVisibilityPropertyPage extends PropertyPage {
 
 	private IProject project;

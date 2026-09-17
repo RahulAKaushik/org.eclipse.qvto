@@ -12,6 +12,12 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.project.QvtProjectUtil;
 
+/**
+ * Finds QVTo projects to invalidate after Java dependencies change. Traversal
+ * includes indirect project references and guards against cycles. It is
+ * deliberately conservative about exports: JDT search determines actual type
+ * visibility when each affected project's discovery runs again.
+ */
 public final class BlackboxProjectDependencies {
 
 	private BlackboxProjectDependencies() {

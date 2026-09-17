@@ -28,6 +28,12 @@ import org.osgi.framework.namespace.BundleNamespace;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 
+/**
+ * Loads annotation-based blackboxes from eligible active bundles. The PDE
+ * selector limits candidates; runtime annotation identity and OSGi wiring
+ * checks still determine eligibility, and descriptor filtering verifies the
+ * defining bundle before attributing a unit to an origin.
+ */
 final class ActiveBundleBlackboxDiscovery {
 
 	private final BlackboxDescriptorLoader descriptorLoader;

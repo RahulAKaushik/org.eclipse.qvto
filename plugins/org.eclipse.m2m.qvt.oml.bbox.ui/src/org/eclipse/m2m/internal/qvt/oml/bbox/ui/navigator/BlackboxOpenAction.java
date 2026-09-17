@@ -18,6 +18,12 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.global.GlobalBlackboxGroup;
 import org.eclipse.ui.IEditorPart;
 
+/**
+ * Shared Java navigation for both trees. A unit's project or origin group must
+ * supply a JDT context that resolves its qualified name; a registry descriptor
+ * alone is insufficient. Operations reveal a method only when its name is
+ * unique in the resolved type, otherwise navigation stops at the type.
+ */
 public class BlackboxOpenAction extends Action {
 
 	private OpenTarget target;
@@ -107,6 +113,8 @@ public class BlackboxOpenAction extends Action {
 	}
 
 	private IMethod findUniqueMethod(IType type, String operationName) throws CoreException {
+		// Display signatures contain QVTo types, not Java overload signatures.
+		// Choosing the first matching method could navigate to the wrong overload.
 		IMethod result = null;
 		for (IMethod method : type.getMethods()) {
 			if (!operationName.equals(method.getElementName())) {

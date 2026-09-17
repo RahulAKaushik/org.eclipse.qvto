@@ -14,8 +14,18 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScop
 import org.eclipse.osgi.util.NLS;
 import org.osgi.service.prefs.BackingStoreException;
 
+/**
+ * Persists each project's display scope with a safe default for missing or
+ * unknown values. Selecting the default removes the explicit preference.
+ * These settings affect tree discovery only, not complete-scope validation.
+ */
 public final class BlackboxVisibilitySettings {
 
+	/**
+	 * Notified synchronously on the setter's thread after a successful preference
+	 * flush, and only when the effective scope changes. UI consumers must marshal
+	 * their updates to the UI thread and unregister when disposed.
+	 */
 	public interface Listener {
 		void scopeChanged(IProject project);
 	}

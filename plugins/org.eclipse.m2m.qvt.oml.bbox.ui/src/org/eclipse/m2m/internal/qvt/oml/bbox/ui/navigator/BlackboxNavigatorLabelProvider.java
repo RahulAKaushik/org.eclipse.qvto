@@ -95,6 +95,7 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 
 	@Override
 	public void dispose() {
+		// Only the generated overlay is owned here; registry/workbench images are shared.
 		if (blackboxErrorImage != null) {
 			blackboxErrorImage.dispose();
 			blackboxErrorImage = null;

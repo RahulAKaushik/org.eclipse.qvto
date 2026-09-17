@@ -33,6 +33,12 @@ import org.eclipse.ui.actions.ActionFactory;
 import org.eclipse.ui.navigator.ICommonActionConstants;
 import org.eclipse.ui.part.ViewPart;
 
+/**
+ * Publishes a complete inventory from a replaceable background discovery job.
+ * The view owns job cancellation and generation invalidation; discovery has no
+ * project-marker side effects. Manual refresh retains the previous tree until
+ * a replacement is published, including when the refresh is canceled.
+ */
 public class GlobalBlackboxView extends ViewPart {
 
 	public static final String ID = "org.eclipse.m2m.qvt.oml.bbox.ui.views.globalBlackboxes"; //$NON-NLS-1$
@@ -166,6 +172,8 @@ public class GlobalBlackboxView extends ViewPart {
 	}
 
 	private void completeDiscovery(final int generation, final GlobalBlackboxDiscoveryResult result) {
+		// Use the Display captured during creation: background completion must not
+		// inspect viewer controls until the runnable reaches the UI thread.
 		Display currentDisplay = display;
 		if (currentDisplay == null || currentDisplay.isDisposed()) {
 			return;
@@ -176,6 +184,7 @@ public class GlobalBlackboxView extends ViewPart {
 					return;
 				}
 				synchronized (GlobalBlackboxView.this) {
+					// An older job may finish after replacement despite cancellation.
 					if (!discoveryGeneration.isCurrent(generation)) {
 						return;
 					}

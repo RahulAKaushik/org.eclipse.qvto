@@ -14,6 +14,12 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.project.QvtProjectUtil;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Owns replaceable validation jobs per project, independently of tree expansion
+ * and display scope. Validation uses All Visible to Project so narrowing the
+ * tree cannot clear dependency failures from Problems. The plug-in activator
+ * schedules validation and cancels outstanding jobs when it stops.
+ */
 public final class BlackboxMarkerValidationService {
 
 	private static final Map<IProject, Job> JOBS = new HashMap<IProject, Job>();
@@ -56,6 +62,7 @@ public final class BlackboxMarkerValidationService {
 					}
 				}
 			};
+			// Serialize project marker writes; the delay coalesces build deltas.
 			job.setRule(project);
 			job.setSystem(true);
 			JOBS.put(project, job);
