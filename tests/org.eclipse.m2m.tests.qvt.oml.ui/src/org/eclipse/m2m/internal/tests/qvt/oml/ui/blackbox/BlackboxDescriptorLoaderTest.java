@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox;
 
 import static org.junit.Assert.assertEquals;
@@ -28,6 +41,7 @@ import org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalEnvFactory;
 import org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalModuleEnv;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorLoader;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResult;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
@@ -54,6 +68,8 @@ public class BlackboxDescriptorLoaderTest {
 	private static final String QUALIFIED_NAME = "example.blackbox.Library"; //$NON-NLS-1$
 	private static final String MODEL_URI = "http://example.test/model"; //$NON-NLS-1$
 
+	private final BlackboxDiscoveryResult parent = new BlackboxDiscoveryResult(null);
+
 	private final BlackboxDescriptorLoader loader = new BlackboxDescriptorLoader();
 
 	@Test
@@ -63,11 +79,11 @@ public class BlackboxDescriptorLoaderTest {
 		QvtOperationalModuleEnv moduleEnv = new QvtOperationalEnvFactory().createModuleEnvironment(module);
 		BlackboxUnit unit = unit(Collections.singletonList(moduleEnv), Diagnostic.OK_INSTANCE);
 
-		BlackboxUnitInfo result = loader.load(this, descriptor(unit), QUALIFIED_NAME, new EPackageRegistryImpl());
+		BlackboxUnitInfo result = loader.load(parent, descriptor(unit), QUALIFIED_NAME, new EPackageRegistryImpl());
 
 		assertTrue(result.isLoaded());
 		assertFalse(result.hasErrors());
-		assertSame(this, result.getParent());
+		assertSame(parent, result.getParent());
 		assertEquals(QUALIFIED_NAME, result.getQualifiedName());
 		assertEquals(1, result.getModules().size());
 
@@ -88,9 +104,9 @@ public class BlackboxDescriptorLoaderTest {
 		child.add(new BasicDiagnostic(Diagnostic.INFO, "test", 2, "detail", null)); //$NON-NLS-1$ //$NON-NLS-2$
 		root.add(child);
 
-		BlackboxUnitInfo result = loader.load(this,
-			descriptor(unit(Collections.<QvtOperationalModuleEnv>emptyList(), root)), QUALIFIED_NAME,
-			new EPackageRegistryImpl());
+		BlackboxUnitInfo result = loader.load(parent,
+				descriptor(unit(Collections.<QvtOperationalModuleEnv>emptyList(), root)), QUALIFIED_NAME,
+				new EPackageRegistryImpl());
 
 		assertTrue(result.isLoaded());
 		assertTrue(result.hasErrors());
@@ -109,11 +125,11 @@ public class BlackboxDescriptorLoaderTest {
 			@Override
 			public BlackboxUnit load(LoadContext context) throws BlackboxException {
 				throw new BlackboxException(new BasicDiagnostic(Diagnostic.ERROR, "test", 0, //$NON-NLS-1$
-					"intentional failure", null)); //$NON-NLS-1$
+						"intentional failure", null)); //$NON-NLS-1$
 			}
 		};
 
-		BlackboxUnitInfo result = loader.load(this, descriptor, QUALIFIED_NAME, new EPackageRegistryImpl());
+		BlackboxUnitInfo result = loader.load(parent, descriptor, QUALIFIED_NAME, new EPackageRegistryImpl());
 
 		assertFalse(result.isLoaded());
 		assertTrue(result.hasErrors());
@@ -125,18 +141,18 @@ public class BlackboxDescriptorLoaderTest {
 	public void exposesPublicMethodsAndAppliesOperationAnnotations() {
 		String unitName = "example.blackbox.MixedJavaLibrary"; //$NON-NLS-1$
 		TransformationExecutor.BlackboxRegistry.INSTANCE.registerModule(SimpleJavaLibrary.class, unitName,
-			"MixedJavaLibrary"); //$NON-NLS-1$
+				"MixedJavaLibrary"); //$NON-NLS-1$
 
 		try {
 			ResolutionContext context = new ResolutionContextImpl(URI.createURI("memory:/blackbox-test.qvto")); //$NON-NLS-1$
 			BlackboxUnitDescriptor descriptor = org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry.INSTANCE
-				.getCompilationUnitDescriptor(unitName, context);
+					.getCompilationUnitDescriptor(unitName, context);
 			assertNotNull(descriptor);
 
 			EPackageRegistryImpl registry = new EPackageRegistryImpl();
 			registry.put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 			registry.put(XMLTypePackage.eNS_URI, XMLTypePackage.eINSTANCE);
-			BlackboxUnitInfo result = loader.load(this, descriptor, unitName, registry);
+			BlackboxUnitInfo result = loader.load(parent, descriptor, unitName, registry);
 
 			assertTrue(diagnosticMessages(result.getDiagnostics()), result.isLoaded());
 			assertFalse(result.hasErrors());
@@ -157,6 +173,16 @@ public class BlackboxDescriptorLoaderTest {
 		} finally {
 			org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry.INSTANCE.cleanup();
 		}
+	}
+
+	@Test(expected = org.eclipse.core.runtime.OperationCanceledException.class)
+	public void propagatesDescriptorCancellationInsteadOfReportingFailure() {
+		loader.load(parent, new TestDescriptor() {
+			@Override
+			public BlackboxUnit load(LoadContext context) {
+				throw new org.eclipse.core.runtime.OperationCanceledException();
+			}
+		}, QUALIFIED_NAME, new EPackageRegistryImpl());
 	}
 
 	private static String diagnosticMessages(List<BlackboxDiagnosticInfo> diagnostics) {

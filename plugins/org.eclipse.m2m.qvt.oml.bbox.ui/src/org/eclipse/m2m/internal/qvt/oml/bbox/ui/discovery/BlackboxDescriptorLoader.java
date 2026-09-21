@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
 import java.util.ArrayList;
@@ -6,6 +19,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EClassifier;
@@ -34,7 +48,7 @@ public class BlackboxDescriptorLoader {
 	 * Loads on the discovery thread. A null descriptor represents an unresolved
 	 * candidate and produces an error node with the supplied qualified name.
 	 */
-	public BlackboxUnitInfo load(Object parent, BlackboxUnitDescriptor descriptor, String qualifiedName,
+	public BlackboxUnitInfo load(BlackboxTreeNode parent, BlackboxUnitDescriptor descriptor, String qualifiedName,
 			EPackage.Registry packageRegistry) {
 		URI descriptorURI = descriptor != null ? descriptor.getURI() : null;
 		BlackboxUnitInfo unitInfo = new BlackboxUnitInfo(parent, qualifiedName, descriptorURI);
@@ -52,11 +66,13 @@ public class BlackboxDescriptorLoader {
 			for (org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalModuleEnv moduleEnv : unit.getElements()) {
 				addModule(unitInfo, moduleEnv.getModuleContextType());
 			}
+		} catch (OperationCanceledException e) {
+			throw e;
 		} catch (BlackboxException e) {
 			addDiagnostic(unitInfo, e.getDiagnostic());
 			if (e.getDiagnostic() == null) {
-				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR,
-						BlackboxDiagnosticUtil.getMessage(e)));
+				unitInfo.addDiagnostic(
+						new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, BlackboxDiagnosticUtil.getMessage(e)));
 			}
 		} catch (RuntimeException e) {
 			addFailure(unitInfo, qualifiedName, e);
@@ -167,7 +183,7 @@ public class BlackboxDescriptorLoader {
 		}
 	}
 
-	private BlackboxDiagnosticInfo createDiagnostic(Object parent, Diagnostic diagnostic) {
+	private BlackboxDiagnosticInfo createDiagnostic(BlackboxTreeNode parent, Diagnostic diagnostic) {
 		if (diagnostic == null || diagnostic.getSeverity() == Diagnostic.OK) {
 			return null;
 		}

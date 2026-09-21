@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
 import java.util.HashSet;
@@ -19,7 +32,7 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
  * Contributions are inventoried independently of the active-bundle annotation
  * scan, so that scan's eligibility filters do not hide explicit registrations.
  */
-final class ExtensionBlackboxDiscovery {
+final class ExtensionBlackboxDiscovery implements BlackboxDiscoverySource {
 
 	private static final String EXTENSION_POINT = "javaBlackboxUnits"; //$NON-NLS-1$
 	private static final String QVT_PLUGIN_ID = "org.eclipse.m2m.qvt.oml"; //$NON-NLS-1$
@@ -34,12 +47,13 @@ final class ExtensionBlackboxDiscovery {
 		this.unitResolver = unitResolver;
 	}
 
-	void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
+	@Override
+	public void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
 			EPackage.Registry packageRegistry, IProgressMonitor monitor) {
 		Map<String, GlobalBlackboxGroup> bundleGroups = new LinkedHashMap<String, GlobalBlackboxGroup>();
 		Set<GlobalBlackboxOriginIdentity> contributionKeys = new HashSet<GlobalBlackboxOriginIdentity>();
-		IConfigurationElement[] elements = Platform.getExtensionRegistry()
-				.getConfigurationElementsFor(QVT_PLUGIN_ID, EXTENSION_POINT);
+		IConfigurationElement[] elements = Platform.getExtensionRegistry().getConfigurationElementsFor(QVT_PLUGIN_ID,
+				EXTENSION_POINT);
 		for (IConfigurationElement element : elements) {
 			checkCanceled(monitor);
 			String contributor = element.getContributor().getName();

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox;
 
 import static org.junit.Assert.assertEquals;
@@ -10,8 +23,8 @@ import java.util.Iterator;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.impl.EPackageRegistryImpl;
 import org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalModuleEnv;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorCandidates;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorCandidates.Candidate;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorCandidates;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxProvider;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnit;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;

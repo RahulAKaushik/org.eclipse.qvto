@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.integration;
 
 import static org.junit.Assert.assertEquals;
@@ -19,9 +32,10 @@ import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResult;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProblemMarkerSynchronizer;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxTreeNode;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
 import org.junit.After;
@@ -58,10 +72,10 @@ public class BlackboxProblemMarkerSynchronizerTest {
 
 	@Test
 	public void createsMarkersForLeafErrorsOnly() throws Exception {
-		BlackboxDiagnosticInfo projectParent = error(this, "project parent"); //$NON-NLS-1$
+		BlackboxDiagnosticInfo projectParent = error(new BlackboxDiscoveryResult(project), "project parent"); //$NON-NLS-1$
 		projectParent.addChild(error(projectParent, "project leaf")); //$NON-NLS-1$
 
-		BlackboxUnitInfo unit = new BlackboxUnitInfo(this, QUALIFIED_NAME, UNIT_URI);
+		BlackboxUnitInfo unit = new BlackboxUnitInfo(new BlackboxDiscoveryResult(project), QUALIFIED_NAME, UNIT_URI);
 		BlackboxDiagnosticInfo unitParent = error(unit, "unit parent"); //$NON-NLS-1$
 		unitParent.addChild(error(unitParent, "unit leaf")); //$NON-NLS-1$
 		unit.addDiagnostic(unitParent);
@@ -113,8 +127,7 @@ public class BlackboxProblemMarkerSynchronizerTest {
 		canceledMonitor.setCanceled(true);
 
 		try {
-			new ProjectBlackboxDiscoveryService().discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, true,
-					canceledMonitor);
+			new ProjectBlackboxDiscoveryService().validate(project, canceledMonitor);
 			fail("Expected discovery cancellation"); //$NON-NLS-1$
 		} catch (OperationCanceledException e) {
 			// Expected: the existing complete marker set must remain published.
@@ -124,7 +137,8 @@ public class BlackboxProblemMarkerSynchronizerTest {
 	}
 
 	private void synchronizeProjectError(String message) throws Exception {
-		synchronizer.synchronize(project, Collections.singletonList(error(this, message)),
+		synchronizer.synchronize(project,
+				Collections.singletonList(error(new BlackboxDiscoveryResult(project), message)),
 				Collections.<BlackboxUnitInfo>emptyList());
 	}
 
@@ -136,14 +150,13 @@ public class BlackboxProblemMarkerSynchronizerTest {
 		return result;
 	}
 
-	private static BlackboxDiagnosticInfo error(Object parent, String message) {
+	private static BlackboxDiagnosticInfo error(BlackboxTreeNode parent, String message) {
 		return new BlackboxDiagnosticInfo(parent, Diagnostic.ERROR, message);
 	}
 
 	private static void assertMarker(IMarker marker, String location) throws Exception {
 		assertTrue(marker != null && marker.exists());
-		assertEquals(IMarker.SEVERITY_ERROR,
-				marker.getAttribute(IMarker.SEVERITY, IMarker.SEVERITY_INFO));
+		assertEquals(IMarker.SEVERITY_ERROR, marker.getAttribute(IMarker.SEVERITY, IMarker.SEVERITY_INFO));
 		assertEquals(location, marker.getAttribute(IMarker.LOCATION, "")); //$NON-NLS-1$
 	}
 }

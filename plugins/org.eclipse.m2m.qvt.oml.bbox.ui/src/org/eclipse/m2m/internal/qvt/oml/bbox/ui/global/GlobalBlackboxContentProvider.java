@@ -1,91 +1,48 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxTreeNode;
 
+/** Adapts typed discovery nodes to JFace, including empty-group placeholders. */
 public class GlobalBlackboxContentProvider implements ITreeContentProvider {
 
 	public Object[] getElements(Object inputElement) {
-		if (inputElement instanceof GlobalBlackboxDiscoveryResult) {
-			return ((GlobalBlackboxDiscoveryResult) inputElement).getGroups().toArray();
-		}
-		if (inputElement instanceof GlobalBlackboxLoadingNode) {
-			return new Object[] { inputElement };
-		}
-		return new Object[0];
+		return inputElement instanceof GlobalBlackboxLoadingNode ? new Object[] { inputElement }
+				: getChildren(inputElement);
 	}
 
 	public Object[] getChildren(Object parentElement) {
-		if (parentElement instanceof GlobalBlackboxGroup) {
-			GlobalBlackboxGroup group = (GlobalBlackboxGroup) parentElement;
-			if (group.getChildren().isEmpty()) {
-				return new Object[] { new GlobalBlackboxStatusNode(group, Messages.GlobalBlackboxView_empty) };
-			}
-			return group.getChildren().toArray();
+		if (!(parentElement instanceof BlackboxTreeNode)) {
+			return new Object[0];
 		}
-		if (parentElement instanceof BlackboxUnitInfo) {
-			BlackboxUnitInfo unit = (BlackboxUnitInfo) parentElement;
-			Object[] children = new Object[unit.getModules().size() + unit.getDiagnostics().size()];
-			int index = 0;
-			for (BlackboxModuleInfo module : unit.getModules()) {
-				children[index++] = module;
-			}
-			for (BlackboxDiagnosticInfo diagnostic : unit.getDiagnostics()) {
-				children[index++] = diagnostic;
-			}
-			return children;
+		BlackboxTreeNode node = (BlackboxTreeNode) parentElement;
+		if (node instanceof GlobalBlackboxGroup && node.getChildren().isEmpty()) {
+			return new Object[] { new GlobalBlackboxStatusNode(node, Messages.GlobalBlackboxView_empty) };
 		}
-		if (parentElement instanceof BlackboxModuleInfo) {
-			return ((BlackboxModuleInfo) parentElement).getOperations().toArray();
-		}
-		if (parentElement instanceof BlackboxDiagnosticInfo) {
-			return ((BlackboxDiagnosticInfo) parentElement).getChildren().toArray();
-		}
-		return new Object[0];
+		return node.getChildren().toArray();
 	}
 
 	public Object getParent(Object element) {
-		if (element instanceof GlobalBlackboxGroup) {
-			return ((GlobalBlackboxGroup) element).getParent();
-		}
-		if (element instanceof GlobalBlackboxStatusNode) {
-			return ((GlobalBlackboxStatusNode) element).getParent();
-		}
-		if (element instanceof BlackboxUnitInfo) {
-			return ((BlackboxUnitInfo) element).getParent();
-		}
-		if (element instanceof BlackboxModuleInfo) {
-			return ((BlackboxModuleInfo) element).getParent();
-		}
-		if (element instanceof BlackboxOperationInfo) {
-			return ((BlackboxOperationInfo) element).getParent();
-		}
-		if (element instanceof BlackboxDiagnosticInfo) {
-			return ((BlackboxDiagnosticInfo) element).getParent();
-		}
-		return null;
+		return element instanceof BlackboxTreeNode ? ((BlackboxTreeNode) element).getParent() : null;
 	}
 
 	public boolean hasChildren(Object element) {
-		if (element instanceof GlobalBlackboxGroup) {
-			return true;
-		}
-		if (element instanceof BlackboxUnitInfo) {
-			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
-			return !unit.getModules().isEmpty() || !unit.getDiagnostics().isEmpty();
-		}
-		if (element instanceof BlackboxModuleInfo) {
-			return !((BlackboxModuleInfo) element).getOperations().isEmpty();
-		}
-		if (element instanceof BlackboxDiagnosticInfo) {
-			return !((BlackboxDiagnosticInfo) element).getChildren().isEmpty();
-		}
-		return false;
+		return element instanceof BlackboxTreeNode && ((BlackboxTreeNode) element).hasChildren();
 	}
 
 	public void dispose() {

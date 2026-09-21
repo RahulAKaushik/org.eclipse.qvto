@@ -1,3 +1,11 @@
+<!--
+Copyright (c) 2026 Rahul Arun Kaushik and others.
+SPDX-License-Identifier: EPL-2.0
+Contributors: 
+    Christopher Gerking - initial API creation
+    Rahul Arun Kaushik - initial API and implementation
+-->
+
 # QVT Operational Java Blackbox UI
 
 The `org.eclipse.m2m.qvt.oml.bbox.ui` plug-in makes Java blackbox libraries
@@ -7,6 +15,16 @@ Explorer and a workspace-wide inventory view.
 The UI is intended for inspecting which blackboxes QVTo can resolve, which
 operations they expose, where they originate, and why a blackbox failed to
 load. Discovery does not compile QVTo transformations.
+
+## Motivation
+
+QVTo Java blackboxes can come from project sources, dependencies, installed
+plug-ins, and runtime registrations. These sources were not visible together
+in the Eclipse UI, making it difficult to determine which libraries a project
+could use, what operations they offered, and why loading failed. This plug-in
+brings that information into Project Explorer and a global inventory view,
+with Java navigation and diagnostics, without compiling transformations just
+to discover blackboxes.
 
 ## Project Explorer
 
@@ -67,12 +85,12 @@ stale result.
 Project discovery deliberately combines two registry operations:
 
 1. JDT searches for Java types annotated with
-   `org.eclipse.m2m.qvt.oml.blackbox.java.Module`.
+   [`@Module`](../org.eclipse.m2m.qvt.oml/src/org/eclipse/m2m/qvt/oml/blackbox/java/Module.java).
 2. Each qualified type name is resolved through
-   `BlackboxRegistry#getCompilationUnitDescriptor(...)`.
+   [`BlackboxRegistry#getCompilationUnitDescriptor(...)`](../org.eclipse.m2m.qvt.oml/src/org/eclipse/m2m/internal/qvt/oml/blackbox/BlackboxRegistry.java).
 3. **All Visible to Project** additionally calls
-   `BlackboxRegistry#getCompilationUnitDescriptors(...)` with the project's
-   `ResolutionContext`.
+   [`BlackboxRegistry#getCompilationUnitDescriptors(...)`](../org.eclipse.m2m.qvt.oml/src/org/eclipse/m2m/internal/qvt/oml/blackbox/BlackboxRegistry.java) with the project's
+   [`ResolutionContext`](../org.eclipse.m2m.qvt.oml/src/org/eclipse/m2m/internal/qvt/oml/blackbox/ResolutionContext.java).
 
 The singular lookup resolves known Java candidates according to provider
 priority and seeds providers that populate data on demand. Plural enumeration
@@ -86,7 +104,7 @@ preserved when it genuinely comes from distinct origins.
 
 Loaded descriptors provide the tree metadata:
 
-- modules from `BlackboxUnit#getElements()`;
+- modules from [`BlackboxUnit#getElements()`](../org.eclipse.m2m.qvt.oml/src/org/eclipse/m2m/internal/qvt/oml/blackbox/BlackboxUnit.java);
 - operations from each generated QVTo module type;
 - contextual receiver, parameter, and return types;
 - package URIs derived from model types and operation types;
@@ -94,7 +112,7 @@ Loaded descriptors provide the tree metadata:
 
 The operation list represents operations exposed by the QVTo blackbox model.
 For Java libraries, compatible public Java methods may become blackbox
-operations; `@Operation` customizes operation semantics and is not simply an
+operations; [`@Operation`](../org.eclipse.m2m.qvt.oml/src/org/eclipse/m2m/qvt/oml/blackbox/java/Operation.java) customizes operation semantics and is not simply an
 inclusion filter.
 
 ## Diagnostics And Markers
@@ -103,13 +121,16 @@ Failed units remain in the tree and expose their diagnostic hierarchy. Eclipse
 error overlays decorate failed units, parent groups, and project roots without
 adding a redundant text suffix.
 
-Project discovery synchronizes persistent QVTo problem markers using
-`QVTOProjectPlugin.PROBLEM_MARKER`. Only leaf diagnostics create markers, which
+[`ProjectBlackboxDiscoveryService#validate(...)`](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/ProjectBlackboxDiscoveryService.java)
+synchronizes persistent QVTo problem markers using
+[`QVTOProjectPlugin.PROBLEM_MARKER`](../org.eclipse.m2m.qvt.oml.project/src/org/eclipse/m2m/internal/qvt/oml/project/QVTOProjectPlugin.java). Only leaf diagnostics create markers, which
 avoids repeating parent and child messages. Feature-owned stale markers are
 replaced after successful validation, while canceled discovery leaves the
 previous marker set intact.
 
-Marker validation always uses **All Visible to Project**, independently of the
+[`discoverForDisplay(...)`](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/ProjectBlackboxDiscoveryService.java)
+discovers the selected scope without writing markers. Marker validation always
+uses **All Visible to Project**, independently of the
 narrower scope selected for display. The workspace-wide view has no project
 marker side effects.
 
@@ -128,25 +149,66 @@ its Java type is resolvable through JDT.
 
 ## Architecture
 
-The implementation is split into small internal services:
+The implementation is split into small internal services. The design uses
+[Composite, Adapter, and Strategy concepts](https://www.informit.com/store/design-patterns-elements-of-reusable-object-oriented-software-9780201633610)
+where they provide concrete benefits:
+
+- **Composite-style traversal:** [BlackboxTreeNode](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/BlackboxTreeNode.java)
+  provides typed parents, read-only children, and recursive error aggregation.
+  Models expose text and semantic roles; they do not create SWT images.
+- **Framework adapters:** the content providers bridge Eclipse's
+  [Object-based tree API](https://help.eclipse.org/latest/rtopic/org.eclipse.platform.doc.isv/reference/api/org/eclipse/jface/viewers/ITreeContentProvider.html)
+  to typed nodes. A shared [label provider](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/navigator/BlackboxNavigatorLabelProvider.java)
+  owns image selection and generated overlays. Adding a node with an existing
+  semantic role does not require new branches in either provider.
+- **Optional capabilities:** [BlackboxNavigable](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/BlackboxNavigable.java)
+  identifies nodes that can supply a unit/method target; [BlackboxJavaContext](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/BlackboxJavaContext.java)
+  supplies the project's JDT context. Status and diagnostic nodes need neither.
+- **Ordered composition:** [BlackboxDiscoverySource](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/BlackboxDiscoverySource.java)
+  lets the discovery facade accept sources with explicit progress allocations.
+  The production order remains workspace, extensions, active bundles, then
+  runtime fallback. This is a composable sequence, not a mutually exclusive
+  choice of Strategies. A source can be substituted in a focused test without
+  replacing Eclipse globals.
+- **Existing policies:** the visibility enum remains compact; [Comparators](https://docs.oracle.com/javase/8/docs/api/java/util/Comparator.html)
+  supply sorting policies, and the existing settings listeners notify viewers
+  when a project's effective scope changes. Extra class hierarchies would not
+  improve these already small responsibilities.
 
 | Package or component | Responsibility |
 | --- | --- |
-| `discovery.ProjectBlackboxDiscoveryService` | Orchestrates project-context discovery and optional marker synchronization. |
-| `discovery.ProjectBlackboxJavaSearch` | Finds annotated Java candidates using the selected visibility policy. |
-| `discovery.BlackboxDescriptorLoader` | Loads descriptors and extracts modules, operations, package URIs, and diagnostics. |
-| `discovery.BlackboxProblemMarkerSynchronizer` | Owns leaf-marker creation, replacement, and cleanup. |
-| `navigator` | Contributes the Common Navigator tree, background jobs, labels, decorations, and Open action. |
-| `settings` | Stores and edits the project-scoped visibility preference. |
-| `global.GlobalBlackboxDiscoveryService` | Coordinates the workspace-wide discovery phases. |
-| `global.WorkspaceBlackboxDiscovery` | Discovers workspace source and binary-library blackboxes. |
-| `global.ExtensionBlackboxDiscovery` | Reads extension-point contributions. |
-| `global.ActiveBundleBlackboxDiscovery` | Discovers blackboxes defined by eligible active OSGi bundles. |
-| `global.RuntimeBlackboxDiscovery` | Adds remaining registry and standalone descriptors. |
+| [BlackboxTreeNode](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/BlackboxTreeNode.java) | Typed traversal and error aggregation, with text/role metadata for presentation. |
+| [BlackboxDiscoverySource](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/BlackboxDiscoverySource.java) | Common contract for sequential global discovery sources. |
+| [discovery.ProjectBlackboxDiscoveryService](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/ProjectBlackboxDiscoveryService.java) | Orchestrates project-context discovery and optional marker synchronization. |
+| [discovery.ProjectBlackboxJavaSearch](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/ProjectBlackboxJavaSearch.java) | Finds annotated Java candidates using the selected visibility policy. |
+| [discovery.BlackboxDescriptorLoader](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/BlackboxDescriptorLoader.java) | Loads descriptors and extracts modules, operations, package URIs, and diagnostics. |
+| [discovery.BlackboxProblemMarkerSynchronizer](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/discovery/BlackboxProblemMarkerSynchronizer.java) | Owns leaf-marker creation, replacement, and cleanup. |
+| [navigator](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/navigator/) | Contributes the Common Navigator tree, background jobs, labels, decorations, and Open action. |
+| [settings](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/settings/) | Stores and edits the project-scoped visibility preference. |
+| [global.GlobalBlackboxDiscoveryService](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/GlobalBlackboxDiscoveryService.java) | Coordinates the workspace-wide discovery phases. |
+| [global.WorkspaceBlackboxDiscovery](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/WorkspaceBlackboxDiscovery.java) | Discovers workspace source and binary-library blackboxes. |
+| [global.ExtensionBlackboxDiscovery](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/ExtensionBlackboxDiscovery.java) | Reads extension-point contributions. |
+| [global.ActiveBundleBlackboxDiscovery](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/ActiveBundleBlackboxDiscovery.java) | Discovers blackboxes defined by eligible active OSGi bundles. |
+| [global.RuntimeBlackboxDiscovery](src/org/eclipse/m2m/internal/qvt/oml/bbox/ui/global/RuntimeBlackboxDiscovery.java) | Adds remaining registry and standalone descriptors. |
 
 Model construction, registry access, JDT search, descriptor loading, and marker
 work run outside the UI thread. SWT/JFace publication is performed on the UI
 thread after cancellation, generation, and disposal checks.
+
+## Eclipse Integration
+
+[plugin.xml](plugin.xml) registers the project tree through
+[navigator content](https://help.eclipse.org/latest/topic/org.eclipse.platform.doc.isv/reference/extension-points/org_eclipse_ui_navigator_navigatorContent.html)
+and [viewer binding](https://help.eclipse.org/latest/topic/org.eclipse.platform.doc.isv/reference/extension-points/org_eclipse_ui_navigator_viewer.html),
+the global view through [views](https://help.eclipse.org/latest/topic/org.eclipse.platform.doc.isv/reference/extension-points/org_eclipse_ui_views.html),
+and project settings through [property pages](https://help.eclipse.org/latest/topic/org.eclipse.platform.doc.isv/reference/extension-points/org_eclipse_ui_propertyPages.html).
+The QVTo [Java blackbox extension schema](../org.eclipse.m2m.qvt.oml/schema/javaBlackboxUnits.exsd)
+defines the registrations inspected by extension discovery.
+
+The [manifest](META-INF/MANIFEST.MF) declares runtime dependencies and internal
+packages. The bundle is included in the [QVTo JDT feature](../../features/org.eclipse.m2m.qvt.oml.editor.jdt-feature/feature.xml);
+the [stable Tycho build](../../releng/org.eclipse.qvto.releng.tycho/pom.xml)
+packages it into the QVTo SDK repository.
 
 ## Refresh Behavior
 
@@ -188,7 +250,7 @@ tests/org.eclipse.m2m.tests.qvt.oml.ui/src/
   org/eclipse/m2m/internal/tests/qvt/oml/ui/blackbox/
 ```
 
-`AllBlackboxTests` is the nested JUnit 4 suite for this plug-in. It covers:
+[AllBlackboxTests](../../tests/org.eclipse.m2m.tests.qvt.oml.ui/src/org/eclipse/m2m/internal/tests/qvt/oml/ui/blackbox/AllBlackboxTests.java) is the nested JUnit 4 suite for this plug-in. It covers:
 
 - descriptor loading, generated operations, signatures, and package URIs;
 - nested and failed diagnostics;
@@ -198,10 +260,12 @@ tests/org.eclipse.m2m.tests.qvt.oml.ui/src/
 - problem marker ownership, leaf creation, cleanup, and cancellation;
 - active-bundle candidate selection, ownership, and extension-name resolution;
 - global origin identity, cancellation, and stale-generation prevention;
-- resource-change classification and user-facing failure labels.
+- resource-change classification and user-facing failure labels;
+- typed tree traversal, parent mapping, sorting, and presentation extensibility;
+- source composition, per-run state, and descriptor cancellation propagation.
 
 Run `AllBlackboxTests` as a **JUnit Plug-in Test** from the
-`org.eclipse.m2m.tests.qvt.oml.ui` test bundle. The suite currently contains 42
+`org.eclipse.m2m.tests.qvt.oml.ui` test bundle. The suite currently contains 53
 test methods.
 
 To compile and package the stable reactor from the repository root:

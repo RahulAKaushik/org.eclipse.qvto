@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
 import java.util.HashSet;
@@ -26,7 +39,7 @@ import org.eclipse.osgi.util.NLS;
  * descriptor identity prevents already attributed registrations from appearing
  * again in this fallback group.
  */
-final class RuntimeBlackboxDiscovery {
+final class RuntimeBlackboxDiscovery implements BlackboxDiscoverySource {
 
 	private final BlackboxDescriptorLoader descriptorLoader;
 
@@ -34,7 +47,8 @@ final class RuntimeBlackboxDiscovery {
 		this.descriptorLoader = descriptorLoader;
 	}
 
-	void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
+	@Override
+	public void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
 			EPackage.Registry packageRegistry, IProgressMonitor monitor) {
 		try {
 			ResolutionContext context = new ResolutionContextImpl(URI.createURI("/")); //$NON-NLS-1$
@@ -49,7 +63,8 @@ final class RuntimeBlackboxDiscovery {
 					continue;
 				}
 				GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-				group.addChild(descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(), packageRegistry));
+				group.addChild(
+						descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(), packageRegistry));
 			}
 		} catch (OperationCanceledException e) {
 			throw e;
@@ -61,9 +76,8 @@ final class RuntimeBlackboxDiscovery {
 	}
 
 	private static void addFailure(GlobalBlackboxDiscoveryResult result, Throwable throwable) {
-		String message = NLS.bind(Messages.BlackboxDiscovery_originFailed,
-				new Object[] { Messages.GlobalBlackboxView_runtimeRegistrations,
-						BlackboxDiagnosticUtil.getMessage(throwable) });
+		String message = NLS.bind(Messages.BlackboxDiscovery_originFailed, new Object[] {
+				Messages.GlobalBlackboxView_runtimeRegistrations, BlackboxDiagnosticUtil.getMessage(throwable) });
 		QVTBBoxUIPlugin.log(QVTBBoxUIPlugin.createStatus(IStatus.ERROR, message, throwable));
 		GlobalBlackboxGroup group = result.getRuntimeRegistrations();
 		group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, message));
