@@ -12,7 +12,6 @@ public class Messages extends NLS {
 
 	public static String BlackboxMarkerValidation_jobName;
 
-	public static String BlackboxNavigator_availableSuffix;
 	public static String BlackboxNavigator_discoveryJobName;
 	public static String BlackboxNavigator_failedSuffix;
 	public static String BlackboxNavigator_loading;
@@ -20,7 +19,6 @@ public class Messages extends NLS {
 	public static String BlackboxNavigator_moduleLabelWithPackages;
 	public static String BlackboxNavigator_refreshJobName;
 	public static String BlackboxNavigator_root;
-	public static String BlackboxNavigator_usedSuffix;
 
 	public static String QVTBBoxUIPlugin_unexpectedError;
 

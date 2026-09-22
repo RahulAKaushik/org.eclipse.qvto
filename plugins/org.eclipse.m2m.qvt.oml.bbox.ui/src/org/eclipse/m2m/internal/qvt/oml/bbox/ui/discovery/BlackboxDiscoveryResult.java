@@ -37,4 +37,18 @@ public class BlackboxDiscoveryResult {
 	void addDiagnostic(BlackboxDiagnosticInfo diagnostic) {
 		diagnostics.add(diagnostic);
 	}
+
+	public boolean hasErrors() {
+		for (BlackboxUnitInfo unit : units) {
+			if (unit.hasErrors()) {
+				return true;
+			}
+		}
+		for (BlackboxDiagnosticInfo diagnostic : diagnostics) {
+			if (diagnostic.hasErrors()) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

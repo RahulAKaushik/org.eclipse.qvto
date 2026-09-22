@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.core.resources.IMarkerDelta;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeEvent;
@@ -26,9 +27,9 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResult;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProjectDependencies;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
-import org.eclipse.m2m.internal.qvt.oml.emf.util.mmregistry.MetamodelRegistry;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
 import org.eclipse.osgi.util.NLS;
@@ -55,7 +56,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 	public Object[] getChildren(Object parentElement) {
 		if (parentElement instanceof IProject) {
 			IProject project = (IProject) parentElement;
-			return isQVTProject(project) ? new Object[] { new BlackboxRootNode(project) } : new Object[0];
+			return isQVTProject(project) ? new Object[] { createRootNode(project) } : new Object[0];
 		}
 
 		if (parentElement instanceof BlackboxRootNode) {
@@ -64,6 +65,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			if (result == null) {
 				return new Object[] { new BlackboxLoadingNode(root) };
 			}
+			root.setHasErrors(result.hasErrors());
 			Object[] children = new Object[result.getUnits().size() + result.getDiagnostics().size()];
 			int index = 0;
 			for (Object unit : result.getUnits()) {
@@ -90,6 +92,10 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 
 		if (parentElement instanceof BlackboxModuleInfo) {
 			return ((BlackboxModuleInfo) parentElement).getOperations().toArray();
+		}
+
+		if (parentElement instanceof BlackboxDiagnosticInfo) {
+			return ((BlackboxDiagnosticInfo) parentElement).getChildren().toArray();
 		}
 
 		return new Object[0];
@@ -135,6 +141,9 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		if (element instanceof BlackboxModuleInfo) {
 			return !((BlackboxModuleInfo) element).getOperations().isEmpty();
 		}
+		if (element instanceof BlackboxDiagnosticInfo) {
+			return !((BlackboxDiagnosticInfo) element).getChildren().isEmpty();
+		}
 		return false;
 	}
 
@@ -179,6 +188,20 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		return null;
 	}
 
+	private BlackboxRootNode createRootNode(IProject project) {
+		BlackboxRootNode root = new BlackboxRootNode(project);
+		BlackboxDiscoveryResult result = null;
+		synchronized (cache) {
+			result = cache.get(project);
+		}
+		if (result != null) {
+			root.setHasErrors(result.hasErrors());
+		} else {
+			root.setHasErrors(ProjectBlackboxDiscoveryService.hasBlackboxProblemMarkers(project));
+		}
+		return root;
+	}
+
 	private void scheduleDiscovery(final BlackboxRootNode root) {
 		final IProject project = root.getProject();
 		Job job = new Job(NLS.bind(Messages.BlackboxNavigator_discoveryJobName, project.getName())) {
@@ -188,7 +211,8 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 					if (monitor.isCanceled() || !isQVTProject(project)) {
 						return Status.CANCEL_STATUS;
 					}
-					BlackboxDiscoveryResult result = discoveryService.discover(project, false);
+					BlackboxDiscoveryResult result = discoveryService.discover(project, false, monitor);
+					root.setHasErrors(result.hasErrors());
 					synchronized (cache) {
 						if (discoveryJobs.get(project) == this) {
 							if (!monitor.isCanceled()) {
@@ -262,12 +286,17 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		}
 
 		final Set<IProject> affectedProjects = new LinkedHashSet<IProject>();
+		final Set<IProject> markerChangedProjects = new LinkedHashSet<IProject>();
 		try {
 			delta.accept(new IResourceDeltaVisitor() {
 				public boolean visit(IResourceDelta resourceDelta) throws CoreException {
 					IResource resource = resourceDelta.getResource();
 					if (resource == null) {
 						return true;
+					}
+					IProject project = resource.getProject();
+					if (project != null && hasBlackboxMarkerDelta(resourceDelta)) {
+						markerChangedProjects.add(project);
 					}
 					if (resource.getType() == IResource.PROJECT) {
 						return true;
@@ -283,9 +312,23 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			QVTBBoxUIPlugin.log(e);
 		}
 
-		for (IProject project : affectedProjects) {
+		for (IProject project : BlackboxProjectDependencies.includeDependentQVTProjects(affectedProjects)) {
 			invalidate(project);
 		}
+		for (IProject project : markerChangedProjects) {
+			if (!affectedProjects.contains(project)) {
+				refresh(createRootNode(project));
+			}
+		}
+	}
+
+	private boolean hasBlackboxMarkerDelta(IResourceDelta resourceDelta) {
+		for (IMarkerDelta markerDelta : resourceDelta.getMarkerDeltas()) {
+			if (ProjectBlackboxDiscoveryService.isBlackboxProblemMarker(markerDelta)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void invalidate(IProject project) {
@@ -325,10 +368,18 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 		return "qvto".equals(extension) //$NON-NLS-1$
 				|| "java".equals(extension) //$NON-NLS-1$
 				|| "class".equals(extension) //$NON-NLS-1$
-				|| "plugin.xml".equals(name) //$NON-NLS-1$
-				|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
-				|| ".classpath".equals(name) //$NON-NLS-1$
-				|| MetamodelRegistry.isMetamodelFileName(name)
-				|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
+				|| "jar".equals(extension) //$NON-NLS-1$
+					|| "plugin.xml".equals(name) //$NON-NLS-1$
+					|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
+					|| ".classpath".equals(name) //$NON-NLS-1$
+					|| isMetamodelFileName(name)
+					|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
+		}
+
+	private boolean isMetamodelFileName(String fileName) {
+		return fileName.endsWith(".ecore") //$NON-NLS-1$
+				|| fileName.endsWith(".xcore") //$NON-NLS-1$
+				|| fileName.endsWith(".emof") //$NON-NLS-1$
+				|| fileName.endsWith(".oclinecore"); //$NON-NLS-1$
 	}
 }

@@ -7,7 +7,6 @@ import org.eclipse.m2m.internal.qvt.oml.common.ui.PluginImages;
 public class QVTBBoxPluginImages extends PluginImages {
 
 	public static final String QVTO_BLACKBOX = "qvto-blackbox"; //$NON-NLS-1$
-	public static final String QVTO_BLACKBOX_ERROR = "qvto-blackbox-error"; //$NON-NLS-1$
 
 	public static QVTBBoxPluginImages getInstance() {
 		return INSTANCE;
@@ -20,7 +19,6 @@ public class QVTBBoxPluginImages extends PluginImages {
 	@Override
 	protected void declareImages() {
 		declareRegistryImage(QVTO_BLACKBOX, "icons/qvto-blackbox.png"); //$NON-NLS-1$
-		declareRegistryImage(QVTO_BLACKBOX_ERROR, "icons/qvto-blackbox-error.png"); //$NON-NLS-1$
 	}
 
 	private static final URL BASE_URL = QVTBBoxUIPlugin.getDefault().getBundle().getEntry("/"); //$NON-NLS-1$
