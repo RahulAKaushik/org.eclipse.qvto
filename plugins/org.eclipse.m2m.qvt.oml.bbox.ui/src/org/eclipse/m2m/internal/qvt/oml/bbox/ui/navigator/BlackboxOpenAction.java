@@ -15,6 +15,7 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResul
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.global.GlobalBlackboxGroup;
 import org.eclipse.ui.IEditorPart;
 
 public class BlackboxOpenAction extends Action {
@@ -59,17 +60,21 @@ public class BlackboxOpenAction extends Action {
 
 		Object selected = selection.getFirstElement();
 		BlackboxUnitInfo unit = getUnit(selected);
-		if (unit == null || !(unit.getParent() instanceof BlackboxDiscoveryResult)) {
+		if (unit == null) {
 			return null;
 		}
 
-		Object resultParent = ((BlackboxDiscoveryResult) unit.getParent()).getParent();
-		if (!(resultParent instanceof IProject)) {
-			return null;
+		IJavaProject javaProject = null;
+		if (unit.getParent() instanceof BlackboxDiscoveryResult) {
+			Object resultParent = ((BlackboxDiscoveryResult) unit.getParent()).getParent();
+			if (resultParent instanceof IProject) {
+				javaProject = JavaCore.create((IProject) resultParent);
+			}
+		} else if (unit.getParent() instanceof GlobalBlackboxGroup) {
+			javaProject = ((GlobalBlackboxGroup) unit.getParent()).getJavaProject();
 		}
 
-		IJavaProject javaProject = JavaCore.create((IProject) resultParent);
-		if (!javaProject.exists()) {
+		if (javaProject == null || !javaProject.exists()) {
 			return null;
 		}
 
