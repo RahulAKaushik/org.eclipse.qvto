@@ -4,17 +4,21 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EPackage;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorLoader;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticUtil;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
+import org.eclipse.osgi.util.NLS;
 
 final class RuntimeBlackboxDiscovery {
 
@@ -41,6 +45,8 @@ final class RuntimeBlackboxDiscovery {
 				GlobalBlackboxGroup group = result.getRuntimeRegistrations();
 				group.addChild(descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(), packageRegistry));
 			}
+		} catch (OperationCanceledException e) {
+			throw e;
 		} catch (RuntimeException e) {
 			addFailure(result, e);
 		} catch (LinkageError e) {
@@ -49,9 +55,12 @@ final class RuntimeBlackboxDiscovery {
 	}
 
 	private static void addFailure(GlobalBlackboxDiscoveryResult result, Throwable throwable) {
-		QVTBBoxUIPlugin.log(throwable);
+		String message = NLS.bind(Messages.BlackboxDiscovery_originFailed,
+				new Object[] { Messages.GlobalBlackboxView_runtimeRegistrations,
+						BlackboxDiagnosticUtil.getMessage(throwable) });
+		QVTBBoxUIPlugin.log(QVTBBoxUIPlugin.createStatus(IStatus.ERROR, message, throwable));
 		GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-		group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, safeMessage(throwable)));
+		group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, message));
 	}
 
 	private static void checkCanceled(IProgressMonitor monitor) {
@@ -60,13 +69,4 @@ final class RuntimeBlackboxDiscovery {
 		}
 	}
 
-	private static String safeMessage(Throwable throwable) {
-		String message = null;
-		try {
-			message = throwable.getMessage();
-		} catch (RuntimeException e) {
-			// Keep diagnostics robust even for exceptions with broken message implementations.
-		}
-		return message != null ? message : throwable.getClass().getName();
-	}
 }

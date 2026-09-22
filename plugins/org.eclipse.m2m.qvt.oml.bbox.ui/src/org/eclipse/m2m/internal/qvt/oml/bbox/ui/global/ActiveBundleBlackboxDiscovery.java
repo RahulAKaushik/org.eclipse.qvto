@@ -5,18 +5,22 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EPackage;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorLoader;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticUtil;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxRegistry;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
 import org.eclipse.m2m.qvt.oml.blackbox.java.Module;
+import org.eclipse.osgi.util.NLS;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -77,6 +81,8 @@ final class ActiveBundleBlackboxDiscovery {
 				group.addChild(descriptorLoader.load(group, descriptor, descriptor.getQualifiedName(), packageRegistry));
 				attributedDescriptors.add(key);
 			}
+		} catch (OperationCanceledException e) {
+			throw e;
 		} catch (RuntimeException e) {
 			addFailure(result, group, bundleId, e);
 		} catch (LinkageError e) {
@@ -98,9 +104,11 @@ final class ActiveBundleBlackboxDiscovery {
 
 	private static void addFailure(GlobalBlackboxDiscoveryResult result, GlobalBlackboxGroup group, String bundleId,
 			Throwable throwable) {
-		QVTBBoxUIPlugin.log(throwable);
+		String message = NLS.bind(Messages.BlackboxDiscovery_originFailed,
+				new Object[] { bundleId, BlackboxDiagnosticUtil.getMessage(throwable) });
+		QVTBBoxUIPlugin.log(QVTBBoxUIPlugin.createStatus(IStatus.ERROR, message, throwable));
 		GlobalBlackboxGroup target = group != null ? group : createGroup(result, bundleId);
-		target.addChild(new BlackboxDiagnosticInfo(target, Diagnostic.ERROR, safeMessage(throwable)));
+		target.addChild(new BlackboxDiagnosticInfo(target, Diagnostic.ERROR, message));
 	}
 
 	private static ResolutionContext bundleContext(String bundleId) {
@@ -171,13 +179,4 @@ final class ActiveBundleBlackboxDiscovery {
 		}
 	}
 
-	private static String safeMessage(Throwable throwable) {
-		String message = null;
-		try {
-			message = throwable.getMessage();
-		} catch (RuntimeException e) {
-			// Keep diagnostics robust even for exceptions with broken message implementations.
-		}
-		return message != null ? message : throwable.getClass().getName();
-	}
 }

@@ -27,7 +27,7 @@ import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxMarkerValidationService;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProjectDependencies;
-import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxResourceChangeSupport;
 import org.osgi.framework.BundleContext;
 
 /**
@@ -134,7 +134,7 @@ public class QVTBBoxUIPlugin extends Plugin {
 						return true;
 					}
 
-					if (isRelevantResource(resource)) {
+					if (BlackboxResourceChangeSupport.isRelevant(resource)) {
 						affectedProjects.add(resource.getProject());
 						return false;
 					}
@@ -150,28 +150,4 @@ public class QVTBBoxUIPlugin extends Plugin {
 		}
 	}
 
-	private boolean isRelevantResource(IResource resource) {
-		if (resource.getType() != IResource.FILE) {
-			return false;
-		}
-
-		String name = resource.getName();
-		String extension = resource.getFileExtension();
-		return "qvto".equals(extension) //$NON-NLS-1$
-				|| "java".equals(extension) //$NON-NLS-1$
-				|| "class".equals(extension) //$NON-NLS-1$
-				|| "jar".equals(extension) //$NON-NLS-1$
-					|| "plugin.xml".equals(name) //$NON-NLS-1$
-					|| "MANIFEST.MF".equals(name) //$NON-NLS-1$
-					|| ".classpath".equals(name) //$NON-NLS-1$
-					|| isMetamodelFileName(name)
-					|| MetamodelURIMappingHelper.getMappingFileHandle(resource.getProject()).equals(resource);
-	}
-
-	private boolean isMetamodelFileName(String fileName) {
-		return fileName.endsWith(".ecore") //$NON-NLS-1$
-				|| fileName.endsWith(".xcore") //$NON-NLS-1$
-				|| fileName.endsWith(".emof") //$NON-NLS-1$
-				|| fileName.endsWith(".oclinecore"); //$NON-NLS-1$
-	}
 }

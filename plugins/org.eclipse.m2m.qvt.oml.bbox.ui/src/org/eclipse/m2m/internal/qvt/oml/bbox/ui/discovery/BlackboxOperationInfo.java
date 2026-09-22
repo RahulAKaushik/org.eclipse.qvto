@@ -1,5 +1,6 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
+/** A blackbox operation whose parent is its containing module. */
 public class BlackboxOperationInfo {
 
 	private final BlackboxModuleInfo parent;

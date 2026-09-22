@@ -11,6 +11,8 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDescriptorLoad
 
 /**
  * Coordinates the discovery sources shown in the workspace-wide blackbox view.
+ * This non-UI service builds a complete result on the calling background
+ * thread; the view is responsible for publishing that result on the UI thread.
  */
 public class GlobalBlackboxDiscoveryService {
 
@@ -24,14 +26,19 @@ public class GlobalBlackboxDiscoveryService {
 
 	public GlobalBlackboxDiscoveryResult discover(IProgressMonitor monitor) {
 		SubMonitor progress = SubMonitor.convert(monitor, 100);
+		progress.checkCanceled();
 		GlobalBlackboxDiscoveryResult result = new GlobalBlackboxDiscoveryResult();
 		Set<BlackboxDescriptorIdentity> attributedDescriptors = new HashSet<BlackboxDescriptorIdentity>();
 		EPackage.Registry packageRegistry = new EPackageRegistryImpl(EPackage.Registry.INSTANCE);
 
 		workspaceDiscovery.discover(result, attributedDescriptors, progress.split(35));
+		progress.checkCanceled();
 		extensionDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(10));
+		progress.checkCanceled();
 		activeBundleDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(45));
+		progress.checkCanceled();
 		runtimeDiscovery.discover(result, attributedDescriptors, packageRegistry, progress.split(10));
+		progress.checkCanceled();
 		result.sort();
 		return result;
 	}

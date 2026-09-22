@@ -8,15 +8,21 @@ public class Messages extends NLS {
 
 	public static String BlackboxDiscovery_descriptorNotResolved;
 	public static String BlackboxDiscovery_markerMessage;
+	public static String BlackboxDiscovery_originFailed;
+	public static String BlackboxDiscovery_projectFailed;
 	public static String BlackboxDiscovery_projectMarkerMessage;
+	public static String BlackboxDiscovery_unitFailed;
+	public static String BlackboxDiscovery_unitLoadFailed;
 
 	public static String BlackboxMarkerValidation_jobName;
+	public static String BlackboxMarkerValidation_failed;
 
 	public static String BlackboxSettings_noProject;
 	public static String BlackboxSettings_saveError;
 	public static String BlackboxSettings_visibilityGroup;
 
 	public static String BlackboxNavigator_discoveryJobName;
+	public static String BlackboxNavigator_discoveryFailed;
 	public static String BlackboxNavigator_loading;
 	public static String BlackboxNavigator_moduleLabel;
 	public static String BlackboxNavigator_moduleLabelWithPackages;
@@ -33,6 +39,7 @@ public class Messages extends NLS {
 	public static String GlobalBlackboxView_canceled;
 	public static String GlobalBlackboxView_collapseAll;
 	public static String GlobalBlackboxView_discoveryJobName;
+	public static String GlobalBlackboxView_discoveryFailed;
 	public static String GlobalBlackboxView_eclipsePlatform;
 	public static String GlobalBlackboxView_empty;
 	public static String GlobalBlackboxView_extensionContributions;

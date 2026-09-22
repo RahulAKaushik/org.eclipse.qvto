@@ -3,6 +3,10 @@ package org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 
+/**
+ * Project Explorer root for one project and visibility scope. Discovery jobs
+ * may update the volatile error summary before requesting a UI-thread refresh.
+ */
 public class BlackboxRootNode {
 
 	private final IProject project;

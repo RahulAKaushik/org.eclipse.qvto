@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EClassifier;
@@ -45,16 +46,22 @@ public class BlackboxDescriptorLoader {
 		} catch (BlackboxException e) {
 			addDiagnostic(unitInfo, e.getDiagnostic());
 			if (e.getDiagnostic() == null) {
-				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+				unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR,
+						BlackboxDiagnosticUtil.getMessage(e)));
 			}
 		} catch (RuntimeException e) {
-			QVTBBoxUIPlugin.log(e);
-			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+			addFailure(unitInfo, qualifiedName, e);
 		} catch (LinkageError e) {
-			QVTBBoxUIPlugin.log(e);
-			unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, safeMessage(e)));
+			addFailure(unitInfo, qualifiedName, e);
 		}
 		return unitInfo;
+	}
+
+	private static void addFailure(BlackboxUnitInfo unitInfo, String qualifiedName, Throwable throwable) {
+		String message = NLS.bind(Messages.BlackboxDiscovery_unitLoadFailed,
+				new Object[] { qualifiedName, BlackboxDiagnosticUtil.getMessage(throwable) });
+		QVTBBoxUIPlugin.log(QVTBBoxUIPlugin.createStatus(IStatus.ERROR, message, throwable));
+		unitInfo.addDiagnostic(new BlackboxDiagnosticInfo(unitInfo, Diagnostic.ERROR, message));
 	}
 
 	private void addModule(BlackboxUnitInfo unitInfo, Module module) {
@@ -168,13 +175,4 @@ public class BlackboxDescriptorLoader {
 		return diagnosticInfo;
 	}
 
-	private static String safeMessage(Throwable throwable) {
-		String message = null;
-		try {
-			message = throwable.getMessage();
-		} catch (RuntimeException e) {
-			// Keep diagnostics robust even for exceptions with broken message implementations.
-		}
-		return message != null ? message : throwable.getClass().getName();
-	}
 }

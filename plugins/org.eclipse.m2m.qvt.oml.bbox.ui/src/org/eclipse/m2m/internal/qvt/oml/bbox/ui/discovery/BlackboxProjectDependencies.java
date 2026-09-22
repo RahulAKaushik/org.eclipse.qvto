@@ -10,7 +10,7 @@ import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
-import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
+import org.eclipse.m2m.internal.qvt.oml.project.QvtProjectUtil;
 
 public final class BlackboxProjectDependencies {
 
@@ -20,7 +20,7 @@ public final class BlackboxProjectDependencies {
 	public static Set<IProject> includeDependentQVTProjects(Set<IProject> changedProjects) {
 		Set<IProject> affectedProjects = new LinkedHashSet<IProject>();
 		for (IProject candidate : ResourcesPlugin.getWorkspace().getRoot().getProjects()) {
-			if (isQVTProject(candidate)
+			if (QvtProjectUtil.isQvtProject(candidate)
 					&& (changedProjects.contains(candidate)
 							|| dependsOnAny(candidate, changedProjects, new LinkedHashSet<IProject>()))) {
 				affectedProjects.add(candidate);
@@ -55,11 +55,4 @@ public final class BlackboxProjectDependencies {
 		return false;
 	}
 
-	private static boolean isQVTProject(IProject project) {
-		try {
-			return project != null && project.isAccessible() && project.hasNature(QVTOProjectPlugin.NATURE_ID);
-		} catch (CoreException e) {
-			return false;
-		}
-	}
 }

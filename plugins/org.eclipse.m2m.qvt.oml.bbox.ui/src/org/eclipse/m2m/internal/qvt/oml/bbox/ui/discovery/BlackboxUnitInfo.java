@@ -6,6 +6,10 @@ import java.util.List;
 
 import org.eclipse.emf.common.util.URI;
 
+/**
+ * A discovered blackbox unit. The parent is a
+ * {@link BlackboxDiscoveryResult} in Project Explorer or a global-view group.
+ */
 public class BlackboxUnitInfo {
 
 	private final Object parent;
