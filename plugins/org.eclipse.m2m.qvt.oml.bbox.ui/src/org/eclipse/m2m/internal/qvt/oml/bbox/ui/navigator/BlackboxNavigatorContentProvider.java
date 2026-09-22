@@ -29,6 +29,7 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxProjectDependencies;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.ProjectBlackboxDiscoveryService;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.urimap.MetamodelURIMappingHelper;
 import org.eclipse.m2m.internal.qvt.oml.project.QVTOProjectPlugin;
@@ -42,6 +43,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 	private final Map<IProject, BlackboxDiscoveryResult> cache = new HashMap<IProject, BlackboxDiscoveryResult>();
 	private final Map<IProject, Job> discoveryJobs = new HashMap<IProject, Job>();
 	private final IResourceChangeListener resourceChangeListener;
+	private final BlackboxVisibilitySettings.Listener scopeListener;
 	private Viewer viewer;
 
 	public BlackboxNavigatorContentProvider() {
@@ -51,6 +53,12 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			}
 		};
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(resourceChangeListener, IResourceChangeEvent.POST_CHANGE);
+		scopeListener = new BlackboxVisibilitySettings.Listener() {
+			public void scopeChanged() {
+				resetForScopeChange();
+			}
+		};
+		BlackboxVisibilitySettings.addListener(scopeListener);
 	}
 
 	public Object[] getChildren(Object parentElement) {
@@ -153,24 +161,13 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 
 	public void dispose() {
 		ResourcesPlugin.getWorkspace().removeResourceChangeListener(resourceChangeListener);
-		synchronized (cache) {
-			cache.clear();
-			for (Job job : discoveryJobs.values()) {
-				job.cancel();
-			}
-			discoveryJobs.clear();
-		}
+		BlackboxVisibilitySettings.removeListener(scopeListener);
+		clearDiscoveryState();
 		viewer = null;
 	}
 
 	public void inputChanged(Viewer viewer, Object oldInput, Object newInput) {
-		synchronized (cache) {
-			cache.clear();
-			for (Job job : discoveryJobs.values()) {
-				job.cancel();
-			}
-			discoveryJobs.clear();
-		}
+		clearDiscoveryState();
 		this.viewer = viewer;
 	}
 
@@ -189,14 +186,15 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 	}
 
 	private BlackboxRootNode createRootNode(IProject project) {
-		BlackboxRootNode root = new BlackboxRootNode(project);
+		BlackboxVisibilityScope scope = BlackboxVisibilitySettings.getScope();
+		BlackboxRootNode root = new BlackboxRootNode(project, scope);
 		BlackboxDiscoveryResult result = null;
 		synchronized (cache) {
 			result = cache.get(project);
 		}
 		if (result != null) {
 			root.setHasErrors(result.hasErrors());
-		} else {
+		} else if (scope == BlackboxVisibilityScope.PROJECT_VISIBLE) {
 			root.setHasErrors(ProjectBlackboxDiscoveryService.hasBlackboxProblemMarkers(project));
 		}
 		return root;
@@ -211,7 +209,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 					if (monitor.isCanceled() || !isQVTProject(project)) {
 						return Status.CANCEL_STATUS;
 					}
-					BlackboxDiscoveryResult result = discoveryService.discover(project, false, monitor);
+					BlackboxDiscoveryResult result = discoveryService.discover(project, root.getScope(), false, monitor);
 					root.setHasErrors(result.hasErrors());
 					synchronized (cache) {
 						if (discoveryJobs.get(project) == this) {
@@ -312,7 +310,10 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			QVTBBoxUIPlugin.log(e);
 		}
 
-		for (IProject project : BlackboxProjectDependencies.includeDependentQVTProjects(affectedProjects)) {
+		Set<IProject> projectsToInvalidate = affectedProjects.isEmpty()
+				? affectedProjects
+				: BlackboxProjectDependencies.includeDependentQVTProjects(affectedProjects);
+		for (IProject project : projectsToInvalidate) {
 			invalidate(project);
 		}
 		for (IProject project : markerChangedProjects) {
@@ -342,7 +343,7 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			job.cancel();
 		}
 
-		BlackboxRootNode root = new BlackboxRootNode(project);
+		BlackboxRootNode root = createRootNode(project);
 		if (hasCachedResult) {
 			scheduleDiscovery(root);
 		} else {
@@ -355,6 +356,37 @@ public class BlackboxNavigatorContentProvider implements ITreeContentProvider {
 			return project != null && project.isAccessible() && project.hasNature(QVTOProjectPlugin.NATURE_ID);
 		} catch (CoreException e) {
 			return false;
+		}
+	}
+
+	private void resetForScopeChange() {
+		clearDiscoveryState();
+		final Viewer currentViewer = viewer;
+		if (currentViewer == null) {
+			return;
+		}
+		WorkbenchJob refreshJob = new WorkbenchJob(Messages.BlackboxNavigator_refreshJobName) {
+			@Override
+			public IStatus runInUIThread(IProgressMonitor monitor) {
+				Control control = currentViewer.getControl();
+				if (control == null || control.isDisposed()) {
+					return Status.CANCEL_STATUS;
+				}
+				currentViewer.refresh();
+				return Status.OK_STATUS;
+			}
+		};
+		refreshJob.setSystem(true);
+		refreshJob.schedule();
+	}
+
+	private void clearDiscoveryState() {
+		synchronized (cache) {
+			cache.clear();
+			for (Job job : discoveryJobs.values()) {
+				job.cancel();
+			}
+			discoveryJobs.clear();
 		}
 	}
 

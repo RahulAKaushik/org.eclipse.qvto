@@ -1,18 +1,25 @@
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator;
 
 import org.eclipse.core.resources.IProject;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScope;
 
 public class BlackboxRootNode {
 
 	private final IProject project;
+	private final BlackboxVisibilityScope scope;
 	private volatile boolean hasErrors;
 
-	public BlackboxRootNode(IProject project) {
+	public BlackboxRootNode(IProject project, BlackboxVisibilityScope scope) {
 		this.project = project;
+		this.scope = scope;
 	}
 
 	public IProject getProject() {
 		return project;
+	}
+
+	public BlackboxVisibilityScope getScope() {
+		return scope;
 	}
 
 	public boolean hasErrors() {
@@ -25,7 +32,7 @@ public class BlackboxRootNode {
 
 	@Override
 	public int hashCode() {
-		return project.hashCode();
+		return 31 * project.hashCode() + scope.hashCode();
 	}
 
 	@Override
@@ -33,6 +40,7 @@ public class BlackboxRootNode {
 		if (obj instanceof BlackboxRootNode == false) {
 			return false;
 		}
-		return project.equals(((BlackboxRootNode) obj).project);
+		BlackboxRootNode other = (BlackboxRootNode) obj;
+		return project.equals(other.project) && scope == other.scope;
 	}
 }

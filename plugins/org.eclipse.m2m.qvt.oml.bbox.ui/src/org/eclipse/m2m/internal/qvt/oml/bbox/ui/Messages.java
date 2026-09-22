@@ -17,8 +17,15 @@ public class Messages extends NLS {
 	public static String BlackboxNavigator_loading;
 	public static String BlackboxNavigator_moduleLabel;
 	public static String BlackboxNavigator_moduleLabelWithPackages;
+	public static String BlackboxNavigator_open;
 	public static String BlackboxNavigator_refreshJobName;
-	public static String BlackboxNavigator_root;
+	public static String BlackboxNavigator_rootProjectDependencies;
+	public static String BlackboxNavigator_rootProjectOnly;
+	public static String BlackboxNavigator_rootProjectVisible;
+	public static String BlackboxNavigator_scopeMenu;
+	public static String BlackboxNavigator_scopeProjectDependencies;
+	public static String BlackboxNavigator_scopeProjectOnly;
+	public static String BlackboxNavigator_scopeProjectVisible;
 
 	public static String QVTBBoxUIPlugin_unexpectedError;
 
