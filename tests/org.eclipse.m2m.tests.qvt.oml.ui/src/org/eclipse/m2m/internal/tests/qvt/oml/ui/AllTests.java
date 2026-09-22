@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2021 Borland Software Corporation and others.
+ * Copyright (c) 2007, 2021, 2026 Borland Software Corporation and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -9,10 +9,12 @@
  * Contributors:
  *     Borland Software Corporation - initial API and implementation
  *     Christopher Gerking - bug 562175
+ * 	   Rahul Arun Kaushik - blackbox UI plugin implementation
  *******************************************************************************/
 package org.eclipse.m2m.internal.tests.qvt.oml.ui;
 
 import org.eclipse.m2m.internal.tests.qvt.oml.debugger.DebuggerTests;
+import org.eclipse.m2m.internal.tests.qvt.oml.ui.blackbox.AllBlackboxTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.completion.CompletionTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.editor.AllEditorTests;
 import org.eclipse.m2m.internal.tests.qvt.oml.ui.wizards.project.NewProjectCreationOperationTest;
@@ -28,7 +30,8 @@ import junit.framework.TestSuite;
  * @author sboyko
  */
 @RunWith(Suite.class)
-@SuiteClasses({CompletionTests.class, AllEditorTests.class, DebuggerTests.class, NewProjectCreationOperationTest.class})
+@SuiteClasses({CompletionTests.class, AllEditorTests.class, DebuggerTests.class, NewProjectCreationOperationTest.class,
+	AllBlackboxTests.class})
 public class AllTests {
 
 	public static void main(String[] args) {
