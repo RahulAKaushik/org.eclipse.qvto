@@ -90,7 +90,7 @@ public class QVTBBoxUIPlugin extends Plugin {
 	}
 	
     public static void log(Throwable e) {
-        log(new Status(IStatus.ERROR, PLUGIN_ID, 0, "Unexpected error caught", e)); //$NON-NLS-1$
+        log(new Status(IStatus.ERROR, PLUGIN_ID, 0, Messages.QVTBBoxUIPlugin_unexpectedError, e));
     }
 
 	public static void log(IStatus status) {
