@@ -12,6 +12,10 @@ public class Messages extends NLS {
 
 	public static String BlackboxMarkerValidation_jobName;
 
+	public static String BlackboxSettings_noProject;
+	public static String BlackboxSettings_saveError;
+	public static String BlackboxSettings_visibilityGroup;
+
 	public static String BlackboxNavigator_discoveryJobName;
 	public static String BlackboxNavigator_loading;
 	public static String BlackboxNavigator_moduleLabel;
@@ -21,7 +25,6 @@ public class Messages extends NLS {
 	public static String BlackboxNavigator_rootProjectDependencies;
 	public static String BlackboxNavigator_rootProjectOnly;
 	public static String BlackboxNavigator_rootProjectVisible;
-	public static String BlackboxNavigator_scopeMenu;
 	public static String BlackboxNavigator_scopeProjectDependencies;
 	public static String BlackboxNavigator_scopeProjectOnly;
 	public static String BlackboxNavigator_scopeProjectVisible;

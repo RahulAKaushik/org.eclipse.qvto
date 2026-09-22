@@ -14,6 +14,25 @@
    </extension>
 
    <extension
+         point="org.eclipse.ui.propertyPages">
+      <page
+            category="org.eclipse.m2m.qvt.oml.ui.QvtSettingsPropertyPage"
+            class="org.eclipse.m2m.internal.qvt.oml.bbox.ui.settings.BlackboxVisibilityPropertyPage"
+            id="org.eclipse.m2m.qvt.oml.bbox.ui.properties.blackboxes"
+            name="%blackboxSettingsPageName">
+         <filter
+               name="nature"
+               value="org.eclipse.m2m.qvt.oml.project.QVTONature">
+         </filter>
+         <enabledWhen>
+            <adapt
+                  type="org.eclipse.core.resources.IProject">
+            </adapt>
+         </enabledWhen>
+      </page>
+   </extension>
+
+   <extension
          point="org.eclipse.ui.navigator.viewer">
       <viewerContentBinding
             viewerId="org.eclipse.ui.navigator.ProjectExplorer">
@@ -69,7 +88,7 @@
          </possibleChildren>
          <actionProvider
                class="org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxNavigatorActionProvider"
-               id="org.eclipse.m2m.qvt.oml.bbox.ui.blackboxScopeActions">
+               id="org.eclipse.m2m.qvt.oml.bbox.ui.blackboxActions">
             <enablement>
                <or>
                   <instanceof
