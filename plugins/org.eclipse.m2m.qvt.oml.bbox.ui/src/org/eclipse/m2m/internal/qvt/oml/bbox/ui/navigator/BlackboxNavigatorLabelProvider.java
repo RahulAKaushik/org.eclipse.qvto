@@ -39,11 +39,7 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 			return Messages.BlackboxNavigator_loading;
 		}
 		if (element instanceof BlackboxUnitInfo) {
-			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
-			if (unit.hasErrors()) {
-				return unit.getQualifiedName() + Messages.BlackboxNavigator_failedSuffix;
-			}
-			return unit.getQualifiedName();
+			return ((BlackboxUnitInfo) element).getQualifiedName();
 		}
 		if (element instanceof BlackboxModuleInfo) {
 			BlackboxModuleInfo module = (BlackboxModuleInfo) element;
