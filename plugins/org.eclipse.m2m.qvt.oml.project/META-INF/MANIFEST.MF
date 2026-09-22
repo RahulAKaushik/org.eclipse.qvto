@@ -10,7 +10,8 @@ Export-Package: org.eclipse.m2m.internal.qvt.oml.project;
   x-friends:="org.eclipse.m2m.qvt.oml.runtime.ui,
    org.eclipse.m2m.qvt.oml.ui,
    org.eclipse.m2m.tests.qvt.oml.ui,
-   org.eclipse.m2m.tests.qvt.oml",
+   org.eclipse.m2m.tests.qvt.oml,
+   org.eclipse.m2m.qvt.oml.bbox.ui",
  org.eclipse.m2m.internal.qvt.oml.project.builder;
   x-friends:="org.eclipse.m2m.qvt.oml.editor.ui,
    org.eclipse.m2m.qvt.oml.ui,

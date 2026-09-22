@@ -15,6 +15,7 @@
 
   <modules>
     <module>org.eclipse.m2m.qvt.oml</module>
+    <module>org.eclipse.m2m.qvt.oml.bbox.ui</module>
     <module>org.eclipse.m2m.qvt.oml.common</module>
     <module>org.eclipse.m2m.qvt.oml.common.ui</module>
     <module>org.eclipse.m2m.qvt.oml.cst.parser</module>
