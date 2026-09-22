@@ -17,6 +17,9 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 		if (element instanceof BlackboxRootNode) {
 			return "QVTo Blackboxes"; //$NON-NLS-1$
 		}
+		if (element instanceof BlackboxLoadingNode) {
+			return "Loading..."; //$NON-NLS-1$
+		}
 		if (element instanceof BlackboxUnitInfo) {
 			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
 			String suffix = unit.isUsed() ? " (used)" : " (available)"; //$NON-NLS-1$ //$NON-NLS-2$
@@ -47,6 +50,9 @@ public class BlackboxNavigatorLabelProvider extends LabelProvider {
 		ISharedImages images = PlatformUI.getWorkbench().getSharedImages();
 		if (element instanceof BlackboxRootNode || element instanceof BlackboxModuleInfo) {
 			return images.getImage(ISharedImages.IMG_OBJ_FOLDER);
+		}
+		if (element instanceof BlackboxLoadingNode) {
+			return images.getImage(ISharedImages.IMG_OBJS_INFO_TSK);
 		}
 		if (element instanceof BlackboxUnitInfo) {
 			BlackboxUnitInfo unit = (BlackboxUnitInfo) element;
