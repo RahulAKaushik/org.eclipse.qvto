@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
 import java.util.Set;
@@ -17,6 +30,11 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.BlackboxUnitDescriptor;
 import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContext;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Shared named-lookup boundary for workspace and extension discovery. A provider
+ * lookup failure is reported in its origin group so unrelated units can still
+ * be discovered; cancellation of the lookup propagates to the discovery job.
+ */
 final class GlobalBlackboxUnitResolver {
 
 	private final BlackboxDescriptorLoader descriptorLoader;

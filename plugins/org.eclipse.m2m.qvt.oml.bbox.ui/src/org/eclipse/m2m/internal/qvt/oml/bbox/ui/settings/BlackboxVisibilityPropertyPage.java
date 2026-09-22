@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.settings;
 
 import org.eclipse.core.resources.IProject;
@@ -16,6 +29,11 @@ import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.ui.dialogs.PropertyPage;
 
+/**
+ * Edits the selected QVTo project's display scope. Radio-button changes and
+ * Restore Defaults remain local to the page until Apply or OK persists them;
+ * settings listeners then invalidate the project's navigator state.
+ */
 public class BlackboxVisibilityPropertyPage extends PropertyPage {
 
 	private IProject project;

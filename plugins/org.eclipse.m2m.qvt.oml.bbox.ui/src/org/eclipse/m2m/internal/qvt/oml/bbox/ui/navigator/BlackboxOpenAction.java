@@ -1,23 +1,38 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator;
 
-import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.ui.JavaUI;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiscoveryResult;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxModuleInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxOperationInfo;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxJavaContext;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxNavigable;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxUnitInfo;
-import org.eclipse.m2m.internal.qvt.oml.bbox.ui.global.GlobalBlackboxGroup;
 import org.eclipse.ui.IEditorPart;
 
+/**
+ * Shared Java navigation for both trees. A unit's project or origin group must
+ * supply a JDT context that resolves its qualified name; a registry descriptor
+ * alone is insufficient. Operations reveal a method only when its name is
+ * unique in the resolved type, otherwise navigation stops at the type.
+ */
 public class BlackboxOpenAction extends Action {
 
 	private OpenTarget target;
@@ -59,20 +74,15 @@ public class BlackboxOpenAction extends Action {
 		}
 
 		Object selected = selection.getFirstElement();
-		BlackboxUnitInfo unit = getUnit(selected);
-		if (unit == null) {
+		if (!(selected instanceof BlackboxNavigable)) {
 			return null;
 		}
-
-		IJavaProject javaProject = null;
-		if (unit.getParent() instanceof BlackboxDiscoveryResult) {
-			Object resultParent = ((BlackboxDiscoveryResult) unit.getParent()).getParent();
-			if (resultParent instanceof IProject) {
-				javaProject = JavaCore.create((IProject) resultParent);
-			}
-		} else if (unit.getParent() instanceof GlobalBlackboxGroup) {
-			javaProject = ((GlobalBlackboxGroup) unit.getParent()).getJavaProject();
+		BlackboxNavigable navigable = (BlackboxNavigable) selected;
+		BlackboxUnitInfo unit = navigable.getNavigationUnit();
+		if (unit == null || !(unit.getParent() instanceof BlackboxJavaContext)) {
+			return null;
 		}
+		IJavaProject javaProject = ((BlackboxJavaContext) unit.getParent()).getJavaProject();
 
 		if (javaProject == null || !javaProject.exists()) {
 			return null;
@@ -83,30 +93,16 @@ public class BlackboxOpenAction extends Action {
 			if (type == null) {
 				return null;
 			}
-			String operationName = selected instanceof BlackboxOperationInfo
-					? ((BlackboxOperationInfo) selected).getName()
-					: null;
-			return new OpenTarget(type, operationName);
+			return new OpenTarget(type, navigable.getOperationName());
 		} catch (CoreException e) {
 			QVTBBoxUIPlugin.log(e);
 			return null;
 		}
 	}
 
-	private BlackboxUnitInfo getUnit(Object element) {
-		if (element instanceof BlackboxUnitInfo) {
-			return (BlackboxUnitInfo) element;
-		}
-		if (element instanceof BlackboxModuleInfo) {
-			return ((BlackboxModuleInfo) element).getParent();
-		}
-		if (element instanceof BlackboxOperationInfo) {
-			return ((BlackboxOperationInfo) element).getParent().getParent();
-		}
-		return null;
-	}
-
 	private IMethod findUniqueMethod(IType type, String operationName) throws CoreException {
+		// Display signatures contain QVTo types, not Java overload signatures.
+		// Choosing the first matching method could navigate to the wrong overload.
 		IMethod result = null;
 		for (IMethod method : type.getMethods()) {
 			if (!operationName.equals(method.getElementName())) {

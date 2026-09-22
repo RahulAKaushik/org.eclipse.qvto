@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
 import java.util.HashMap;
@@ -14,6 +27,12 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.project.QvtProjectUtil;
 import org.eclipse.osgi.util.NLS;
 
+/**
+ * Owns replaceable validation jobs per project, independently of tree expansion
+ * and display scope. Validation uses All Visible to Project so narrowing the
+ * tree cannot clear dependency failures from Problems. The plug-in activator
+ * schedules validation and cancels outstanding jobs when it stops.
+ */
 public final class BlackboxMarkerValidationService {
 
 	private static final Map<IProject, Job> JOBS = new HashMap<IProject, Job>();
@@ -39,7 +58,7 @@ public final class BlackboxMarkerValidationService {
 						if (monitor.isCanceled() || !QvtProjectUtil.isQvtProject(project)) {
 							return Status.CANCEL_STATUS;
 						}
-						new ProjectBlackboxDiscoveryService().discover(project, true, monitor);
+						new ProjectBlackboxDiscoveryService().validate(project, monitor);
 						return Status.OK_STATUS;
 					} catch (OperationCanceledException e) {
 						return Status.CANCEL_STATUS;
@@ -56,6 +75,7 @@ public final class BlackboxMarkerValidationService {
 					}
 				}
 			};
+			// Serialize project marker writes; the delay coalesces build deltas.
 			job.setRule(project);
 			job.setSystem(true);
 			JOBS.put(project, job);

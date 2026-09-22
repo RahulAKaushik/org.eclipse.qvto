@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
 import java.util.ArrayList;
@@ -14,7 +27,6 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
@@ -36,7 +48,12 @@ import org.eclipse.m2m.internal.qvt.oml.blackbox.ResolutionContextImpl;
 import org.eclipse.m2m.internal.qvt.oml.emf.util.URIUtils;
 import org.eclipse.m2m.qvt.oml.blackbox.java.Module;
 
-final class WorkspaceBlackboxDiscovery {
+/**
+ * Discovers annotated source and binary types in one combined JDT search over
+ * accessible Java projects. Results are grouped by source project or binary
+ * root, retaining equal qualified names when they have different origins.
+ */
+final class WorkspaceBlackboxDiscovery implements BlackboxDiscoverySource {
 
 	private final GlobalBlackboxUnitResolver unitResolver;
 
@@ -44,8 +61,9 @@ final class WorkspaceBlackboxDiscovery {
 		this.unitResolver = unitResolver;
 	}
 
-	void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
-			IProgressMonitor monitor) {
+	@Override
+	public void discover(GlobalBlackboxDiscoveryResult result, Set<BlackboxDescriptorIdentity> attributedDescriptors,
+			EPackage.Registry packageRegistry, IProgressMonitor monitor) {
 		SubMonitor progress = SubMonitor.convert(monitor);
 		List<IJavaProject> javaProjects = new ArrayList<IJavaProject>();
 		Map<IProject, IJavaProject> accessibleProjects = new LinkedHashMap<IProject, IJavaProject>();
@@ -139,6 +157,8 @@ final class WorkspaceBlackboxDiscovery {
 			libraryContexts.put(rootKey, context);
 			result.getJavaLibraries().addChild(group);
 		}
+		// A shared binary root uses the first encountered project's resolution
+		// and navigation context consistently for all units in that group.
 		JavaProjectContext context = libraryContexts.get(rootKey);
 		unitResolver.addResolvedUnit(group, type.getFullyQualifiedName(), context.resolutionContext,
 				context.packageRegistry, attributedDescriptors);

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery;
 
 import java.util.Comparator;
@@ -11,8 +24,8 @@ import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EPackage;
-import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.impl.EPackageRegistryImpl;
+import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
@@ -46,25 +59,30 @@ public class ProjectBlackboxDiscoveryService {
 		return BlackboxProblemMarkerSynchronizer.isProblemMarker(markerDelta);
 	}
 
-	public BlackboxDiscoveryResult discover(IProject project) {
-		return discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, true, null);
+	/** Discovers the selected display scope without writing Problems markers. */
+	public BlackboxDiscoveryResult discoverForDisplay(IProject project, BlackboxVisibilityScope scope,
+			IProgressMonitor monitor) {
+		return discover(project, scope, false, monitor);
 	}
 
-	public BlackboxDiscoveryResult discover(IProject project, boolean updateMarkers) {
-		return discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, updateMarkers, null);
+	/** Validates the complete project visibility and replaces owned Problems markers. */
+	public BlackboxDiscoveryResult validate(IProject project, IProgressMonitor monitor) {
+		return discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, true, monitor);
 	}
 
-	public BlackboxDiscoveryResult discover(IProject project, boolean updateMarkers, IProgressMonitor monitor) {
-		return discover(project, BlackboxVisibilityScope.PROJECT_VISIBLE, updateMarkers, monitor);
-	}
-
-	public BlackboxDiscoveryResult discover(IProject project, BlackboxVisibilityScope scope, boolean updateMarkers,
+	/**
+	 * Discovers without compiling transformations or traversing their imports.
+	 * Marker updates are honored only for the complete PROJECT_VISIBLE scope;
+	 * callers displaying a narrower scope must leave validation to its own job.
+	 */
+	private BlackboxDiscoveryResult discover(IProject project, BlackboxVisibilityScope scope, boolean updateMarkers,
 			IProgressMonitor monitor) {
 		BlackboxDiscoveryResult result = new BlackboxDiscoveryResult(project);
 		boolean canceled = false;
 
 		try {
 			discoverProject(result, project, scope, monitor);
+			checkCanceled(monitor);
 			sort(result);
 		} catch (OperationCanceledException e) {
 			canceled = true;
@@ -75,6 +93,8 @@ public class ProjectBlackboxDiscoveryService {
 			addProjectFailure(result, project, e);
 		} finally {
 			if (!canceled && updateMarkers && scope.includesRegistryDescriptors()) {
+				// A provider may mark the monitor canceled while returning normally.
+				checkCanceled(monitor);
 				updateMarkers(project, result);
 			}
 		}
@@ -93,6 +113,8 @@ public class ProjectBlackboxDiscoveryService {
 			collectJavaDescriptor(result, candidates, qualifiedName, context, packageRegistry);
 		}
 
+		// Enumerate after named lookups have populated demand-driven providers.
+		// This also adds registrations with no annotated Java search candidate.
 		if (scope.includesRegistryDescriptors()) {
 			checkCanceled(monitor);
 			collectRegistryDescriptors(result, project, candidates, context, packageRegistry, monitor);
@@ -122,8 +144,8 @@ public class ProjectBlackboxDiscoveryService {
 	}
 
 	private void collectRegistryDescriptors(BlackboxDiscoveryResult result, IProject project,
-			BlackboxDescriptorCandidates candidates, ResolutionContext context,
-			EPackage.Registry packageRegistry, IProgressMonitor monitor) {
+			BlackboxDescriptorCandidates candidates, ResolutionContext context, EPackage.Registry packageRegistry,
+			IProgressMonitor monitor) {
 		try {
 			for (BlackboxUnitDescriptor descriptor : BlackboxRegistry.INSTANCE.getCompilationUnitDescriptors(context)) {
 				checkCanceled(monitor);

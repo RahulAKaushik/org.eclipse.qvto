@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.settings;
 
 import java.util.List;
@@ -14,8 +27,18 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxVisibilityScop
 import org.eclipse.osgi.util.NLS;
 import org.osgi.service.prefs.BackingStoreException;
 
+/**
+ * Persists each project's display scope with a safe default for missing or
+ * unknown values. Selecting the default removes the explicit preference.
+ * These settings affect tree discovery only, not complete-scope validation.
+ */
 public final class BlackboxVisibilitySettings {
 
+	/**
+	 * Notified synchronously on the setter's thread after a successful preference
+	 * flush, and only when the effective scope changes. UI consumers must marshal
+	 * their updates to the UI thread and unregister when disposed.
+	 */
 	public interface Listener {
 		void scopeChanged(IProject project);
 	}

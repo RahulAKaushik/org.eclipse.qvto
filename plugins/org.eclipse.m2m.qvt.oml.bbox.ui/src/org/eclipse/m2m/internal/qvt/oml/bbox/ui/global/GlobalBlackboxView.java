@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Rahul Arun Kaushik and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Rahul Arun Kaushik - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.bbox.ui.global;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -21,6 +34,7 @@ import org.eclipse.m2m.internal.qvt.oml.bbox.ui.Messages;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.QVTBBoxUIPlugin;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticInfo;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.discovery.BlackboxDiagnosticUtil;
+import org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxNavigatorLabelProvider;
 import org.eclipse.m2m.internal.qvt.oml.bbox.ui.navigator.BlackboxOpenAction;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
@@ -33,6 +47,12 @@ import org.eclipse.ui.actions.ActionFactory;
 import org.eclipse.ui.navigator.ICommonActionConstants;
 import org.eclipse.ui.part.ViewPart;
 
+/**
+ * Publishes a complete inventory from a replaceable background discovery job.
+ * The view owns job cancellation and generation invalidation; discovery has no
+ * project-marker side effects. Manual refresh retains the previous tree until
+ * a replacement is published, including when the refresh is canceled.
+ */
 public class GlobalBlackboxView extends ViewPart {
 
 	public static final String ID = "org.eclipse.m2m.qvt.oml.bbox.ui.views.globalBlackboxes"; //$NON-NLS-1$
@@ -49,7 +69,7 @@ public class GlobalBlackboxView extends ViewPart {
 		display = parent.getDisplay();
 		viewer = new TreeViewer(parent, SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL);
 		viewer.setContentProvider(new GlobalBlackboxContentProvider());
-		viewer.setLabelProvider(new GlobalBlackboxLabelProvider());
+		viewer.setLabelProvider(new BlackboxNavigatorLabelProvider());
 		viewer.setInput(GlobalBlackboxLoadingNode.INSTANCE);
 		getSite().setSelectionProvider(viewer);
 
@@ -66,8 +86,8 @@ public class GlobalBlackboxView extends ViewPart {
 			}
 		};
 		refreshAction.setToolTipText(Messages.GlobalBlackboxView_refresh);
-		refreshAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages()
-				.getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
+		refreshAction.setImageDescriptor(
+				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
 
 		Action collapseAllAction = new Action(Messages.GlobalBlackboxView_collapseAll) {
 			@Override
@@ -76,8 +96,8 @@ public class GlobalBlackboxView extends ViewPart {
 			}
 		};
 		collapseAllAction.setToolTipText(Messages.GlobalBlackboxView_collapseAll);
-		collapseAllAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages()
-				.getImageDescriptor(ISharedImages.IMG_ELCL_COLLAPSEALL));
+		collapseAllAction.setImageDescriptor(
+				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_COLLAPSEALL));
 
 		getViewSite().getActionBars().getToolBarManager().add(refreshAction);
 		getViewSite().getActionBars().getToolBarManager().add(collapseAllAction);
@@ -166,6 +186,8 @@ public class GlobalBlackboxView extends ViewPart {
 	}
 
 	private void completeDiscovery(final int generation, final GlobalBlackboxDiscoveryResult result) {
+		// Use the Display captured during creation: background completion must not
+		// inspect viewer controls until the runnable reaches the UI thread.
 		Display currentDisplay = display;
 		if (currentDisplay == null || currentDisplay.isDisposed()) {
 			return;
@@ -176,6 +198,7 @@ public class GlobalBlackboxView extends ViewPart {
 					return;
 				}
 				synchronized (GlobalBlackboxView.this) {
+					// An older job may finish after replacement despite cancellation.
 					if (!discoveryGeneration.isCurrent(generation)) {
 						return;
 					}
@@ -191,8 +214,8 @@ public class GlobalBlackboxView extends ViewPart {
 	private static GlobalBlackboxDiscoveryResult errorResult(Throwable throwable) {
 		GlobalBlackboxDiscoveryResult result = new GlobalBlackboxDiscoveryResult();
 		GlobalBlackboxGroup group = result.getRuntimeRegistrations();
-		group.addChild(new BlackboxDiagnosticInfo(group, Diagnostic.ERROR,
-				BlackboxDiagnosticUtil.getMessage(throwable)));
+		group.addChild(
+				new BlackboxDiagnosticInfo(group, Diagnostic.ERROR, BlackboxDiagnosticUtil.getMessage(throwable)));
 		return result;
 	}
 
